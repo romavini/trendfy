@@ -1,19 +1,16 @@
 import numpy as np
-from trendfy.helpers import get_dotenv, print_message, read_json_to_df
+from trendfy.helpers import exception_handler, get_dotenv, print_message, read_json_to_df
 import sys
-import traceback
 import json
 import pandas as pd
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from spotipy.exceptions import SpotifyException
-from requests.exceptions import HTTPError, ReadTimeout
 
 
 class Colect:
     def __init__(self):
-        self.overwrite = False
-        self.max_repertoire = 50
+        self.overwrite = True
+        self.max_repertoire = 10
         self.max_ids_request = 50
         self.sp = spotipy.Spotify(
             client_credentials_manager=SpotifyClientCredentials(
@@ -22,350 +19,195 @@ class Colect:
             )
         )
 
-    def get_repertoire(self, styles, years, repertoire_type="albums"):
-        repertoire_type_single = repertoire_type[:-1]
-        styles_list = []
+    def search_repertoires(self, styles, years, repertoire_type="album"):
+        """"""
+        df_repertoire = pd.DataFrame()
 
-        for style in styles:
-            for year in years:
-                try:
-                    if repertoire_type == "albums":
-                        search_str = f"{style} {year}"
-                    elif repertoire_type == "albums":
-                        search_str = f"{style} year:{year}"
+        for year in years:
+            for style in styles:
+                if repertoire_type == "playlist":
+                    search_str = f"{style} {year}"
+                elif repertoire_type == "album":
+                    search_str = f"{style} year:{year}"
 
-                    result = self.sp.search(
-                        search_str, type=repertoire_type_single, limit=self.max_repertoire
-                    )
+                df_res, exception_raised = self.get_sp_repertoire(
+                    search_str, year, style, repertoire_type
+                )
 
-                    for item in result[f"{repertoire_type}"]["items"]:
-                        dict_styles = {}
+                if exception_raised:
+                    print(f"{type(df_res)=}")  # debug
 
-                        dict_styles["name"] = item["name"].lower()
-                        dict_styles["id"] = item["id"]
-                        dict_styles["style"] = style
-                        dict_styles["year"] = year
-
-                        if item["type"] == "album":
-                            dict_styles["release_date"] = item["release_date"]
-
-                        styles_list.append(dict_styles)
-
-                    print_message(
-                        "Searching...",
-                        f"Got {len(result[f'{repertoire_type}']['items'])}"
-                        f" {repertoire_type} of '{style} {year}'",
-                        "n",
-                    )
-                except KeyboardInterrupt:
-                    print_message(
-                        "KeyboardInterrupt",
-                        "Step stopped by user.",
-                        "e",
-                    )
-
-                    if len(styles_list) != 0:
+                if exception_raised == 2:
+                    if (len(df_repertoire) + len(df_res)) != 0:
                         resp = input(
-                            f"Got about to {len(styles_list)} {repertoire_type}."
+                            f"Got about to {len(df_repertoire)} {repertoire_type}(s)."
                             + " Would you like to proceed? [y/n]: "
                         )
                         if resp.lower() == "y":
-                            df_repertoire = pd.DataFrame(styles_list)
+                            df_repertoire = pd.concat([df_repertoire, df_res])
                             return df_repertoire
                         else:
                             sys.exit()
                     else:
                         print_message(
                             "Empty List",
-                            f"No data to proceed. Exiting.\n{traceback.format_exc()}..",
+                            "No data to proceed. Exiting...",
                             "e",
                         )
                         sys.exit()
+                else:
+                    df_repertoire = pd.concat([df_repertoire, df_res])
+
+        return df_repertoire
+
+    @exception_handler
+    def get_sp_repertoire(self, search_str, year, style, repertoire_type):
+        """"""
+        result = self.sp.search(
+            search_str, type=repertoire_type, limit=self.max_repertoire
+        )
+
+        styles_list = []
+
+        for item in result[f"{repertoire_type}s"]["items"]:
+            dict_styles = {}
+
+            dict_styles["name"] = item["name"].lower()
+            dict_styles["id"] = item["id"]
+            dict_styles["total_tracks"] = item["total_tracks"]
+            dict_styles["style"] = style
+            dict_styles["year"] = year
+
+            if item["type"] == "album":
+                dict_styles["release_date"] = item["release_date"]
+
+            styles_list.append(dict_styles)
+
+        print_message(
+            "Searching...",
+            f"Got {len(result[f'{repertoire_type}s']['items'])}"
+            f" {repertoire_type} of '{style} {year}'",
+            "n",
+        )
 
         df_repertoire = pd.DataFrame(styles_list)
 
         return df_repertoire
 
-    def get_tracks_from_repertoire(self, df_repertoire, repertoire_type="albums"):
-        track_list = []
+    def search_tracks_from_repertoire(self, df_repertoire, repertoire_type="album"):
+        """"""
+        steps = (len(df_repertoire.index) - 1) // 20
+        tracks = []
 
-        print_message(
-            "Searching...",
-            f"Getting the {repertoire_type[:-1]} tracks",
-            "n",
-        )
+        for idx_repertoire in range(steps + 1):
+            repertoire_ids = df_repertoire.iloc[
+                idx_repertoire * 20 : (idx_repertoire + 1) * 20
+            ]["id"]
 
-        steps = len(df_repertoire.index) // 20 + 1
+            print_message(
+                "Searching...",
+                f"Getting the {repertoire_type} tracks: "
+                f"{round(idx_repertoire * 100 / steps, 2)}%",
+                "n",
+            )
 
-        for idx_repertoire in range(steps):
-            if len(steps) < 1e3:
-                print_message(
-                    "Searching...",
-                    f"Getting the {repertoire_type[:-1]} tracks: "
-                    f"{round(idx_repertoire * 100 / steps, 2)}%",
-                    "n",
-                )
-            elif len(steps) < 1e4 and (idx_repertoire % 10 == 0):
-                print_message(
-                    "Searching...",
-                    f"Getting the {repertoire_type[:-1]} tracks: "
-                    f"{round(idx_repertoire * 100 / steps, 2)}%",
-                    "n",
-                )
+            album_results, exception_raised = self.get_sp_tracks_in_repertoire(
+                repertoire_ids, repertoire_type
+            )
+            if exception_raised == 2:
+                break
 
-            try:
-                repertoire_ids = df_repertoire.iloc[
-                    idx_repertoire * 20 : (idx_repertoire + 1) * 20
-                ]["id"]
-                results = self.sp.albums(repertoire_ids)
+            trecks_res, exception_raised = self.get_sp_tracks(
+                album_results,
+                df_repertoire.iloc[idx_repertoire],
+                repertoire_type,
+            )
+            if exception_raised == 2:
+                break
 
-                for repertoire in results["albums"]:
-                    tracks_popularity = []
+            tracks.extend(trecks_res)
 
-                    if repertoire_type == "albums":
-                        for _ in range(len(repertoire["tracks"]["items"]) // 50 + 1):
-                            tracksids = [
-                                item["id"] for item in repertoire["tracks"]["items"]
-                            ]
-                            tracks_popularity.append(
-                                [
-                                    track["popularity"]
-                                    for track in self.sp.tracks(tracksids)["tracks"]
-                                ]
-                            )
-
-                    for idx_track, item in enumerate(repertoire["tracks"]["items"]):
-                        tracks = {}
-
-                        try:
-                            if repertoire_type == "albums":
-                                tracks["release_date"] = repertoire["release_date"]
-                                tracks["popularity"] = tracks_popularity[0][idx_track]
-
-                            tracks["track_name"] = item["name"]
-                            tracks["track_id"] = item["id"]
-                            tracks["artist_name"] = item["artists"][0]["name"]
-                            tracks["artist_id"] = item["artists"][0]["id"]
-                            tracks["duration"] = item["duration_ms"]
-                            tracks["explicit"] = item["explicit"]
-
-                            tracks["repertoire_type"] = repertoire_type
-                            tracks["repertoire_name"] = df_repertoire.iloc[
-                                idx_repertoire
-                            ]["name"]
-                            tracks["repertoire_id"] = df_repertoire.iloc[idx_repertoire][
-                                "id"
-                            ]
-                            tracks["style"] = df_repertoire.iloc[idx_repertoire]["style"]
-                            tracks["year"] = df_repertoire.iloc[idx_repertoire]["year"]
-
-                            track_list.append(tracks)
-
-                        except KeyError:
-                            print_message(
-                                "KeyError",
-                                "Error in track info. Item dropped."
-                                f"\n{traceback.format_exc()}",
-                                "e",
-                            )
-                        except TypeError:
-                            print_message(
-                                "TypeError",
-                                "Error in track info. Item dropped."
-                                f"\n{traceback.format_exc()}",
-                                "e",
-                            )
-                        except ConnectionResetError:
-                            print_message(
-                                "ConnectionResetError",
-                                f"Connection reset by peer.\n{traceback.format_exc()}",
-                                "e",
-                            )
-
-                            df_track = pd.DataFrame(track_list)
-                            return df_track
-                        except KeyboardInterrupt:
-                            print_message(
-                                "KeyboardInterrupt",
-                                "Step stopped by user.",
-                                "e",
-                            )
-                            df_track = pd.DataFrame(track_list)
-                            return df_track
-
-            except ReadTimeout:
-                print_message(
-                    "ReadTimeout",
-                    f"Read timed out.\n{traceback.format_exc()}",
-                    "e",
-                )
-
-                if len(track_list) != 0:
-                    df_track = pd.DataFrame(track_list)
-                    return df_track
-                else:
-                    print_message(
-                        "Empty List",
-                        f"No data to proceed. Exiting...\n{traceback.format_exc()}",
-                        "e",
-                    )
-                    sys.exit()
-
-            except ConnectionResetError:
-                print_message(
-                    "ConnectionError",
-                    f"Connection reset by peer.\n{traceback.format_exc()}",
-                    "e",
-                )
-
-                if len(track_list) != 0:
-                    df_track = pd.DataFrame(track_list)
-                    return df_track
-                else:
-                    print_message(
-                        "Empty List",
-                        f"No data to proceed. Exiting...\n{traceback.format_exc()}",
-                        "e",
-                    )
-                    sys.exit()
-
-            except KeyboardInterrupt:
-                print_message(
-                    "KeyboardInterrupt",
-                    "Step stopped by user.",
-                    "e",
-                )
-
-                if len(track_list) != 0:
-                    df_track = pd.DataFrame(track_list)
-                    return df_track
-                else:
-                    print_message(
-                        "Empty List",
-                        f"No data to proceed. Exiting...\n{traceback.format_exc()}",
-                        "e",
-                    )
-                    sys.exit()
-
-            df_track = pd.DataFrame(track_list)
+        df_track = pd.DataFrame(tracks)
 
         return df_track
 
-    def get_track_details(self, df_track):
+    @exception_handler
+    def get_sp_tracks_in_repertoire(self, repertoire_ids, repertoire_type):
+        """"""
+        album_results = self.sp.albums(repertoire_ids)
+
+        return album_results
+
+    @exception_handler
+    def get_sp_tracks(self, album_results, df_repertoire_in_loc, repertoire_type):
+        """"""
+        track_list = []
+
+        for repertoire in album_results["albums"]:
+            if repertoire_type == "album":
+                tracksids = [item["id"] for item in repertoire["tracks"]["items"]]
+
+            tracks_popularity = []
+
+            for i in range(((len(tracksids) - 1) // self.max_ids_request) + 1):
+                tracks_popularity.extend(
+                    [
+                        track["popularity"]
+                        for track in self.sp.tracks(
+                            tracksids[
+                                self.max_ids_request * i : self.max_ids_request * (i + 1)
+                            ]
+                        )["tracks"]
+                    ]
+                )
+
+            for idx_track, item in enumerate(repertoire["tracks"]["items"]):
+                tracks = {}
+
+                if item["id"] != tracksids[idx_track]:
+                    raise ValueError("Popularity list is out of order")
+
+                if repertoire_type == "album":
+                    tracks["release_date"] = repertoire["release_date"]
+                    tracks["album_popularity"] = repertoire["popularity"]
+                    tracks["popularity"] = tracks_popularity[idx_track]
+
+                tracks["track_name"] = item["name"]
+                tracks["track_id"] = item["id"]
+                tracks["artist_name"] = item["artists"][0]["name"]
+                tracks["artist_id"] = item["artists"][0]["id"]
+                tracks["duration"] = item["duration_ms"]
+                tracks["explicit"] = item["explicit"]
+                tracks["repertoire_type"] = repertoire_type
+                tracks["repertoire_name"] = df_repertoire_in_loc["name"]
+                tracks["repertoire_id"] = df_repertoire_in_loc["id"]
+                tracks["style"] = df_repertoire_in_loc["style"]
+                tracks["year"] = df_repertoire_in_loc["year"]
+
+                track_list.append(tracks)
+
+        return track_list
+
+    def search_track_details(self, df_track):
         """Given tracks id, return details from tracks.
 
         Keyword arguments:
         df_track -- list of dictionaries with tracks
         """
-        exit_n_save = False
-        ids = list(set(df_track["track_id"]))
 
-        features_list = []
-        steps = range(len(ids) // self.max_ids_request)
-
-        for i in steps:
-            try:
-                if len(steps) < 1e3:
-                    print_message(
-                        "Searching...",
-                        "Getting details of tracks: "
-                        f"{round(i * 100 / (len(ids) // self.max_ids_request + 1), 2)}%",
-                        "n",
-                    )
-                elif len(steps) < 1e4 and (i % 10 == 0):
-                    print_message(
-                        "Searching...",
-                        "Getting details of tracks: "
-                        f"{round(i * 100 / (len(ids) // self.max_ids_request + 1), 2)}%",
-                        "n",
-                    )
-                elif i % 100 == 0:
-                    print_message(
-                        "Searching...",
-                        "Getting details of tracks: "
-                        f"{round(i * 100 / (len(ids) // self.max_ids_request + 1), 2)}%",
-                        "n",
-                    )
-
-                results = self.sp.audio_features(
-                    ids[i * self.max_ids_request : (i + 1) * self.max_ids_request - 1]
-                )
-
-                features_list.extend(results)
-            except ReadTimeout:
-                print_message("ReadTimeout", "Read timed out.", "e")
-                exit_n_save = True
-                break
-            except SpotifyException:
-                print_message("SpotifyException", "Error getting request.", "e")
-                exit_n_save = True
-                break
-            except HTTPError:
-                print_message("HTTPError", "Error getting request.", "e")
-                exit_n_save = True
-                break
-            except ConnectionResetError:
-                print_message(
-                    "ConnectionResetError",
-                    f"Connection reset by peer.\n{traceback.format_exc()}",
-                    "e",
-                )
-                exit_n_save = True
-                break
-            except KeyboardInterrupt:
-                print_message(
-                    "KeyboardInterrupt",
-                    "Step stopped by user.",
-                    "e",
-                )
-                exit_n_save = True
-                break
-
-        if not exit_n_save:
-            try:
-                print_message(
-                    "Searching...",
-                    "Getting details of tracks: 100%",
-                    "n",
-                )
-
-                results = self.sp.audio_features(
-                    ids[len(ids) // self.max_ids_request * self.max_ids_request : -1]
-                )
-
-                features_list.extend(results)
-            except SpotifyException:
-                print_message("SpotifyException", "Error getting request", "e")
-            except HTTPError:
-                print_message("HTTPError", "Error getting request", "e")
-            except ConnectionResetError:
-                print_message(
-                    "ConnectionResetError",
-                    f"Connection reset by peer.\n{traceback.format_exc()}",
-                    "e",
-                )
-
-        while None in features_list:
-            features_list.remove(None)
+        features_list, exception_raised = self.get_sp_details(df_track)
+        if exception_raised == 2:
+            sys.exit()
 
         if len(features_list) == 0:
             print_message(
                 "Empty List",
-                f"No data to proceed. Exiting.\n{traceback.format_exc()}..",
+                "No data to proceed. Exiting...",
                 "e",
             )
             sys.exit()
 
-        try:
-            features_df = pd.DataFrame(features_list)
-        except AttributeError:
-            print_message("AttributeError", "None in list. Saving list...", "e")
-            self.write_json(
-                features_list,
-                data_type="list",
-                filename="features_list",
-                overwrite=True,
-            )
+        features_df = pd.DataFrame(features_list)
 
         df_track.drop_duplicates(subset=["track_id", "repertoire_id"], inplace=True)
         df_details = pd.merge(
@@ -377,6 +219,23 @@ class Colect:
         ).drop_duplicates(subset=["track_id", "repertoire_id"])
 
         return df_details
+
+    @exception_handler
+    def get_sp_details(self, df_track):
+        """"""
+        ids = list(set(df_track["track_id"]))
+        features_list = []
+
+        for i in range(((len(ids) - 1) // self.max_ids_request) + 1):
+            results = self.sp.audio_features(
+                ids[i * self.max_ids_request : (i + 1) * self.max_ids_request]
+            )
+            features_list.extend(results)
+
+        while None in features_list:
+            features_list.remove(None)
+
+        return features_list
 
     def write_json(self, data, data_type="list", filename="response", overwrite=False):
         if data_type == "list":

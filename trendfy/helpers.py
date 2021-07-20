@@ -2,6 +2,79 @@ import json
 import os
 import pandas as pd
 from dotenv import load_dotenv
+import traceback
+from spotipy.exceptions import SpotifyException
+from requests.exceptions import HTTPError, ReadTimeout
+
+
+def exception_handler(func):
+    def wrapper(*args, **kwargs):
+        res = None
+        exception_raised = 1
+
+        try:
+            res = func(*args, **kwargs)
+        except AttributeError:
+            print_message(
+                "AttributeError",
+                f"\n{traceback.format_exc()}",
+                "e",
+            )
+        except ValueError:
+            print_message(
+                "ValueError",
+                f"\n{traceback.format_exc()}",
+                "e",
+            )
+        except KeyError:
+            print_message(
+                "KeyError",
+                f"Error in track info.\n{traceback.format_exc()}",
+                "e",
+            )
+        except TypeError:
+            print_message(
+                "TypeError",
+                f"Error in track info.\n{traceback.format_exc()}",
+                "e",
+            )
+        except ReadTimeout:
+            print_message(
+                "ReadTimeout",
+                f"Read timed out.\n{traceback.format_exc()}",
+                "e",
+            )
+        except HTTPError:
+            print_message(
+                "HTTPError",
+                f"Error getting request.\n{traceback.format_exc()}",
+                "e",
+            )
+        except SpotifyException:
+            print_message(
+                "SpotifyException",
+                f"Error getting request.\n{traceback.format_exc()}",
+                "e",
+            )
+        except ConnectionResetError:
+            print_message(
+                "ConnectionResetError",
+                f"Connection reset by peer.\n{traceback.format_exc()}",
+                "e",
+            )
+        except KeyboardInterrupt:
+            print_message(
+                "KeyboardInterrupt",
+                "Step stopped by user.",
+                "e",
+            )
+            exception_raised = 2
+        else:
+            exception_raised = 0
+
+        return res, exception_raised
+
+    return wrapper
 
 
 def read_json_to_df(filename):
