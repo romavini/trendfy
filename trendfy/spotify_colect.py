@@ -1,50 +1,60 @@
-import numpy as np
-from trendfy.helpers import exception_handler, get_dotenv, print_message, read_json_to_df
+from trendfy.helpers import (
+    exception_handler,
+    get_dotenv,
+    print_message,
+)
 import sys
-import json
+from typing import Any, Dict, List
+import numpy as np
 import pandas as pd
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
 
 class Colect:
-    def __init__(self):
-        self.overwrite = True
-        self.max_repertoire = 10
-        self.max_ids_request = 50
+    def __init__(
+        self,
+        overwrite: bool = False,
+        max_repertoire: int = 100,
+        max_ids_request: int = 50,
+    ):
+        self.overwrite = overwrite
+        self.max_repertoire = max_repertoire
+        self.max_ids_request = max_ids_request
         self.sp = spotipy.Spotify(
             client_credentials_manager=SpotifyClientCredentials(
-                client_id=get_dotenv("CLIENT_ID"),
-                client_secret=get_dotenv("CLIENT_SECRET"),
+                client_id=get_dotenv("SPOTIFY_CLIENT_ID"),
+                client_secret=get_dotenv("SPOTIFY_CLIENT_SECRET"),
             )
         )
 
-    def search_repertoires(self, styles, years, repertoire_type="album"):
+    def search_repertoires(
+        self,
+        styles: List[str],
+        years: range,
+        repertoire_type: str = "album",
+    ) -> pd.DataFrame:
         """"""
         df_repertoire = pd.DataFrame()
 
         for year in years:
             for style in styles:
-                if repertoire_type == "playlist":
-                    search_str = f"{style} {year}"
-                elif repertoire_type == "album":
-                    search_str = f"{style} year:{year}"
+                search_str = f"{style} year:{year}"
 
                 df_res, exception_raised = self.get_sp_repertoire(
-                    search_str, year, style, repertoire_type
+                    search_str, style, year, repertoire_type
                 )
 
-                if exception_raised:
-                    print(f"{type(df_res)=}")  # debug
-
                 if exception_raised == 2:
-                    if (len(df_repertoire) + len(df_res)) != 0:
+                    if len(df_repertoire) != 0:
                         resp = input(
                             f"Got about to {len(df_repertoire)} {repertoire_type}(s)."
                             + " Would you like to proceed? [y/n]: "
                         )
                         if resp.lower() == "y":
-                            df_repertoire = pd.concat([df_repertoire, df_res])
+                            df_repertoire = pd.concat(
+                                [df_repertoire, df_res], ignore_index=True
+                            )
                             return df_repertoire
                         else:
                             sys.exit()
@@ -56,37 +66,63 @@ class Colect:
                         )
                         sys.exit()
                 else:
-                    df_repertoire = pd.concat([df_repertoire, df_res])
+                    df_repertoire = pd.concat(
+                        [df_repertoire, df_res], ignore_index=True
+                    )
 
         return df_repertoire
 
     @exception_handler
-    def get_sp_repertoire(self, search_str, year, style, repertoire_type):
+    def get_sp_repertoire(
+        self,
+        search_str: str,
+        style: str,
+        year: int,
+        repertoire_type: str,
+    ) -> pd.DataFrame:
         """"""
-        result = self.sp.search(
-            search_str, type=repertoire_type, limit=self.max_repertoire
-        )
+        result = []
+        offset = 0
+        repertoire_limit = 20
+
+        for i in range((self.max_repertoire // repertoire_limit) + 1):
+            if i == (self.max_repertoire // repertoire_limit):
+                rest = self.max_repertoire % repertoire_limit
+                if rest == 0:
+                    break
+
+                limit = self.max_repertoire % repertoire_limit
+            else:
+                limit = repertoire_limit
+
+            result.extend(
+                self.sp.search(
+                    search_str,
+                    type=repertoire_type,
+                    limit=limit,
+                    offset=offset,
+                )[f"{repertoire_type}s"]["items"]
+            )
+            offset += repertoire_limit
 
         styles_list = []
 
-        for item in result[f"{repertoire_type}s"]["items"]:
+        for item in result:
             dict_styles = {}
 
-            dict_styles["name"] = item["name"].lower()
             dict_styles["id"] = item["id"]
-            dict_styles["total_tracks"] = item["total_tracks"]
+            dict_styles["name"] = item["name"].lower()
+            dict_styles["artist"] = item["artists"][0]["name"].lower()
             dict_styles["style"] = style
             dict_styles["year"] = year
-
-            if item["type"] == "album":
-                dict_styles["release_date"] = item["release_date"]
+            dict_styles["release_date"] = item["release_date"]
+            dict_styles["n_of_tracks"] = item["n_of_tracks"]
 
             styles_list.append(dict_styles)
 
         print_message(
             "Searching...",
-            f"Got {len(result[f'{repertoire_type}s']['items'])}"
-            f" {repertoire_type} of '{style} {year}'",
+            f"Got {len(result)} {repertoire_type} of '{style} {year}'",
             "n",
         )
 
@@ -94,7 +130,11 @@ class Colect:
 
         return df_repertoire
 
-    def search_tracks_from_repertoire(self, df_repertoire, repertoire_type="album"):
+    def search_tracks_from_repertoire(
+        self,
+        df_repertoire: pd.DataFrame,
+        repertoire_type: str = "album",
+    ) -> pd.DataFrame:
         """"""
         steps = (len(df_repertoire.index) - 1) // 20
         tracks = []
@@ -103,6 +143,9 @@ class Colect:
             repertoire_ids = df_repertoire.iloc[
                 idx_repertoire * 20 : (idx_repertoire + 1) * 20
             ]["id"]
+            repertoire_total_tracks = df_repertoire.iloc[
+                idx_repertoire * 20 : (idx_repertoire + 1) * 20
+            ]["n_of_tracks"].tolist()
 
             print_message(
                 "Searching...",
@@ -112,54 +155,74 @@ class Colect:
             )
 
             album_results, exception_raised = self.get_sp_tracks_in_repertoire(
-                repertoire_ids, repertoire_type
+                repertoire_ids
             )
             if exception_raised == 2:
                 break
 
             trecks_res, exception_raised = self.get_sp_tracks(
                 album_results,
-                df_repertoire.iloc[idx_repertoire],
+                df_repertoire.iloc[idx_repertoire * 20 : (idx_repertoire + 1) * 20],
+                repertoire_total_tracks,
                 repertoire_type,
             )
             if exception_raised == 2:
                 break
 
-            tracks.extend(trecks_res)
+            if trecks_res is not None:
+                tracks.extend(trecks_res)
 
         df_track = pd.DataFrame(tracks)
 
         return df_track
 
     @exception_handler
-    def get_sp_tracks_in_repertoire(self, repertoire_ids, repertoire_type):
+    def get_sp_tracks_in_repertoire(self, repertoire_ids: List[str]) -> Dict[str, str]:
         """"""
         album_results = self.sp.albums(repertoire_ids)
 
         return album_results
 
     @exception_handler
-    def get_sp_tracks(self, album_results, df_repertoire_in_loc, repertoire_type):
+    def get_styles(self) -> List[str]:
+        """Return a list of styles"""
+        return self.sp.recommendation_genre_seeds()["genres"]
+
+    @exception_handler
+    def get_sp_tracks(
+        self,
+        album_results: Dict[str, Any],
+        df_repertoire_in_loc: pd.DataFrame,
+        repertoire_total_tracks: List[int],
+        repertoire_type: str,
+    ) -> List[dict[str, Any]]:
         """"""
         track_list = []
 
-        for repertoire in album_results["albums"]:
+        for idx_repertoire, repertoire in enumerate(album_results["albums"]):
             if repertoire_type == "album":
                 tracksids = [item["id"] for item in repertoire["tracks"]["items"]]
+
+            if repertoire_total_tracks[idx_repertoire] != len(
+                repertoire["tracks"]["items"]
+            ):
+                print_message(
+                    "Missing tracks!",
+                    f"album {df_repertoire_in_loc.iloc[idx_repertoire]['name']} - "
+                    f"id:{df_repertoire_in_loc.iloc[idx_repertoire]['id']} should have "
+                    f"{repertoire_total_tracks[idx_repertoire]} tracks, "
+                    f"but has only {len(repertoire['tracks']['items'])}",
+                    "e",
+                )
 
             tracks_popularity = []
 
             for i in range(((len(tracksids) - 1) // self.max_ids_request) + 1):
-                tracks_popularity.extend(
-                    [
-                        track["popularity"]
-                        for track in self.sp.tracks(
-                            tracksids[
-                                self.max_ids_request * i : self.max_ids_request * (i + 1)
-                            ]
-                        )["tracks"]
-                    ]
-                )
+                tracks_resp = self.sp.tracks(
+                    tracksids[self.max_ids_request * i : self.max_ids_request * (i + 1)]
+                )["tracks"]
+
+                tracks_popularity.extend([track["popularity"] for track in tracks_resp])
 
             for idx_track, item in enumerate(repertoire["tracks"]["items"]):
                 tracks = {}
@@ -179,25 +242,37 @@ class Colect:
                 tracks["duration"] = item["duration_ms"]
                 tracks["explicit"] = item["explicit"]
                 tracks["repertoire_type"] = repertoire_type
-                tracks["repertoire_name"] = df_repertoire_in_loc["name"]
-                tracks["repertoire_id"] = df_repertoire_in_loc["id"]
-                tracks["style"] = df_repertoire_in_loc["style"]
-                tracks["year"] = df_repertoire_in_loc["year"]
+                tracks["repertoire_name"] = df_repertoire_in_loc.iloc[idx_repertoire][
+                    "name"
+                ]
+                tracks["repertoire_id"] = df_repertoire_in_loc.iloc[idx_repertoire][
+                    "id"
+                ]
+                tracks["style"] = df_repertoire_in_loc.iloc[idx_repertoire]["style"]
+                tracks["year"] = df_repertoire_in_loc.iloc[idx_repertoire]["year"]
 
                 track_list.append(tracks)
 
         return track_list
 
-    def search_track_details(self, df_track):
+    def search_track_details(self, df_track: pd.DataFrame) -> pd.DataFrame:
         """Given tracks id, return details from tracks.
 
         Keyword arguments:
         df_track -- list of dictionaries with tracks
         """
+        ids = list(set(df_track["track_id"]))
+        features_list = []
 
-        features_list, exception_raised = self.get_sp_details(df_track)
-        if exception_raised == 2:
-            sys.exit()
+        for i in range(((len(ids) - 1) // self.max_ids_request) + 1):
+            search_ids = ids[i * self.max_ids_request : (i + 1) * self.max_ids_request]
+            features_responde, exception_raised = self.get_sp_details(search_ids)
+
+            if exception_raised == 2:
+                sys.exit()
+
+            if not (features_responde is None):
+                features_list.extend(features_responde)
 
         if len(features_list) == 0:
             print_message(
@@ -206,6 +281,9 @@ class Colect:
                 "e",
             )
             sys.exit()
+
+        while None in features_list:
+            features_list.remove(None)
 
         features_df = pd.DataFrame(features_list)
 
@@ -221,56 +299,16 @@ class Colect:
         return df_details
 
     @exception_handler
-    def get_sp_details(self, df_track):
+    def get_sp_details(self, search_ids: list[str]) -> Dict[str, Any]:
         """"""
-        ids = list(set(df_track["track_id"]))
-        features_list = []
-
-        for i in range(((len(ids) - 1) // self.max_ids_request) + 1):
-            results = self.sp.audio_features(
-                ids[i * self.max_ids_request : (i + 1) * self.max_ids_request]
-            )
-            features_list.extend(results)
-
-        while None in features_list:
-            features_list.remove(None)
-
-        return features_list
-
-    def write_json(self, data, data_type="list", filename="response", overwrite=False):
-        if data_type == "list":
-            if overwrite:
-                with open(f"{filename}.json", "w") as f:
-                    json.dump(data, f)
-            else:
-                pass
-
-        elif data_type == "df":
-            if overwrite:
-                with open(f"{filename}.json", "w") as f:
-                    result_df = data.to_json(orient="split")
-                    parsed = json.loads(result_df)
-                    json.dump(parsed, f)
-            else:
-                try:
-                    old_df = read_json_to_df(filename)
-                    data = pd.concat([old_df, data])
-                except FileNotFoundError:
-                    print_message(
-                        "Warning...",
-                        f"File '{filename}.json' not found. Creating new",
-                        "n",
-                    )
-
-                with open(f"{filename}.json", "w") as f:
-                    result_df = data.to_json(orient="split")
-                    parsed = json.loads(result_df)
-                    json.dump(parsed, f)
-
-        print_message("Success", f"File '{filename}.json' saved.", "s")
+        results = self.sp.audio_features(search_ids)
+        return results
 
     @staticmethod
-    def check_existent_tracks(present_df, df_saved):
+    def check_existent_tracks(
+        present_df: pd.DataFrame, df_saved: pd.DataFrame
+    ) -> pd.DataFrame:
+        """"""
         duplicates = np.array(
             [
                 (present_track, present_playlist)
