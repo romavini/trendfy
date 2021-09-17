@@ -8,10 +8,10 @@ from trendfy.helpers import print_message
 class Trendfy:
     def __init__(
         self,
-        overwrite: bool = False,
-        max_repertoire: int = 20,
-        max_ids_request: int = 50,
-        start_from: str = "b",
+        overwrite: bool,
+        max_repertoire: int,
+        max_ids_request: int,
+        start_from: str,
     ):
         self.colect = Colect(
             overwrite=overwrite,
@@ -53,7 +53,7 @@ class Trendfy:
                 f"Expected {df_repertoire['n_of_tracks'].sum()} tracks.",
                 "s",
             )
-            # TODO: Fix the colect of tracks
+
             df_track = self.colect.search_tracks_from_repertoire(
                 df_repertoire, repertoire_type
             )

@@ -11,7 +11,7 @@ def menu() -> Tuple[bool, int, int, str]:
 
     type_error = True
     while type_error:
-        resp_max_repertoire = input("Max resquests of repertoire\n-->:")
+        resp_max_repertoire = input("Max resquests of repertoire (50)\n-->:")
         try:
             if resp_max_repertoire == "":
                 max_repertoire = 50
@@ -25,7 +25,7 @@ def menu() -> Tuple[bool, int, int, str]:
 
     type_error = True
     while type_error:
-        resp_max_tracks = input("\n\nMax resquests of tracks\n-->:")
+        resp_max_tracks = input("\n\nMax resquests of tracks (30)\n-->:")
         try:
             if resp_max_tracks == "":
                 max_ids_request = 30
