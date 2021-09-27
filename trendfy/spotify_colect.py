@@ -94,7 +94,7 @@ class Colect:
             dict_styles["style"] = style
             dict_styles["year"] = year
             dict_styles["release_date"] = item["release_date"]
-            dict_styles["n_of_tracks"] = item["n_of_tracks"]
+            dict_styles["n_of_tracks"] = item["total_tracks"]
             dict_styles["artist_id"] = item["artists"][0]["id"]
 
             albums_list.append(dict_styles)
@@ -150,7 +150,9 @@ class Colect:
         return df_repertoire
 
     @exception_handler
-    def get_sp_tracks_in_repertoire(self, repertoire_ids: List[str]) -> Dict[str, str]:
+    def get_sp_tracks_in_repertoire(
+        self, repertoire_ids: List[str]
+    ) -> List[Dict[str, Any]]:
         """"""
         album_results = self.sp.albums(repertoire_ids)
 
@@ -159,11 +161,44 @@ class Colect:
     def append_track_to_list(
         self,
         tracks: List[Any],
-        tracks_response: Dict[str, Any],
-        features_response: Dict[str, Any],
-    ) -> List[Any]:
+        tracks_response: List[Dict[str, Any]],
+        features_response: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
         """Append the infos and features of tracks in a list of dictionaries."""
-        pass
+
+        for track, feature in zip(tracks_response, features_response):
+            tracks_dict = {}
+
+            if track["track_id"] != feature["id"]:
+                print_message("Erro", "Some resquest fail.", "e")
+                # TODO: merge tracks and features by id in an DataFrame.
+            else:
+                tracks_dict["id"] = track["track_id"]
+                tracks_dict["name"] = track["track_name"]
+                tracks_dict["album_id"] = track["album_id"]
+                tracks_dict["album_popularity"] = track["album_popularity"]
+                tracks_dict["popularity"] = track["popularity"]
+                tracks_dict["duration_ms"] = track["duration_ms"]
+                tracks_dict["explicit"] = track["explicit"]
+
+                tracks_dict["danceability"] = feature["danceability"]
+                tracks_dict["danceability"] = feature["danceability"]
+                tracks_dict["danceability"] = feature["danceability"]
+                tracks_dict["energy"] = feature["energy"]
+                tracks_dict["key"] = feature["key"]
+                tracks_dict["loudness"] = feature["loudness"]
+                tracks_dict["mode"] = feature["mode"]
+                tracks_dict["speechiness"] = feature["speechiness"]
+                tracks_dict["acousticness"] = feature["acousticness"]
+                tracks_dict["instrumentalness"] = feature["instrumentalness"]
+                tracks_dict["liveness"] = feature["liveness"]
+                tracks_dict["valence"] = feature["valence"]
+                tracks_dict["tempo"] = feature["tempo"]
+                tracks_dict["time_signature"] = feature["time_signature"]
+
+                tracks.append(tracks_dict)
+
+        return tracks
 
     def search_tracks_from_repertoire(
         self,
@@ -172,9 +207,7 @@ class Colect:
     ) -> pd.DataFrame:
         """"""
         steps = (len(df_repertoire.index) - 1) // 20 + 1
-        tracks = []
-
-        df_tracks = pd.DataFrame()
+        tracks: List[Any] = []
 
         for idx_repertoire in range(steps):
             repertoire_ids = df_repertoire.iloc[
@@ -231,7 +264,7 @@ class Colect:
         df_repertoire_in_loc: pd.DataFrame,
         repertoire_total_tracks: List[int],
         repertoire_type: str,
-    ) -> List[dict[str, Any]]:
+    ) -> List[Dict[str, Any]]:
         """"""
         track_list = []
 
@@ -325,10 +358,20 @@ class Colect:
         return df_details
 
     @exception_handler
-    def get_sp_details(self, search_ids: list[str]) -> Dict[str, Any]:
-        """"""
-        results = self.sp.audio_features(search_ids)
-        return results
+    def get_sp_details(self, search_ids: list[str]) -> List[Dict[str, Any]]:
+        """Collect features of any all tracks.
+
+        Keyword arguments:
+        search_ids -- List of track ids
+        """
+        tracks_features = []
+        for i in range(((len(search_ids) - 1) // self.max_ids_request) + 1):
+            tracks_resp = self.sp.audio_features(
+                search_ids[self.max_ids_request * i : self.max_ids_request * (i + 1)]
+            )
+            tracks_features.extend(tracks_resp)
+
+        return tracks_features
 
     @staticmethod
     def check_existent_tracks(

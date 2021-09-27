@@ -1,2 +1,4 @@
-YEARS = range(1990, 2022)
-STYLES = None
+YEARS = range(1990, 1991)
+STYLES = ["rock"]
+MAX_REQ_ALBUMS = 30
+MAX_REQ_TRACKS = 20

@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Any, Callable
 import pandas as pd
 import psycopg2 as psql
+from psycopg2.extensions import register_adapter, AsIs
 from sqlalchemy import (
+    select,
     Column,
     Integer,
     String,
@@ -15,9 +17,20 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.schema import ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+import numpy as np
+
+
+def addapt_numpy_float64(numpy_float64):
+    print(f"{numpy_float64 = }")
+    print(f"{type(numpy_float64) = }")
+    data = numpy_float64.item()
+    print(f"{data = }")
+    print(f"{type(data) = }")
+    return data
 
 
 Base = declarative_base()
+register_adapter(np.int64, addapt_numpy_float64)
 
 
 @dataclass
@@ -49,18 +62,20 @@ class Tracks(Base):  # type: ignore
     id = Column(String, primary_key=True)
     name = Column(String)
     album_id = Column(String, ForeignKey("albums.id"))
+    popularity = Column(Integer)
     duration_ms = Column(Integer)
-    explicity = Column(Integer)
+    explicit = Column(Integer)
+    danceability = Column(Float)
     energy = Column(Float)
-    key = Column(Integer)
+    key = Column(Float)
     loudness = Column(Float)
     mode = Column(Integer)
     speechiness = Column(Float)
     acousticness = Column(Float)
     instrumentalness = Column(Float)
-    liviness = Column(Float)
+    liveness = Column(Float)
     valence = Column(Float)
-    tempo = Column(Integer)
+    tempo = Column(Float)
     time_signature = Column(Integer)
 
     def __repr__(self):
@@ -68,8 +83,10 @@ class Tracks(Base):  # type: ignore
             f"<Album(id='{self.id}', "
             f"name='{self.name}', "
             f"album_id='{self.album_id}', "
+            f"popularity='{self.popularity}', "
             f"duration_ms='{self.duration_ms}', "
-            f"explicity='{self.explicity}', "
+            f"explicit='{self.explicit}', "
+            f"danceability='{self.danceability}', "
             f"energy='{self.energy}', "
             f"key='{self.key}', "
             f"loudness='{self.loudness}', "
@@ -77,7 +94,7 @@ class Tracks(Base):  # type: ignore
             f"speechiness='{self.speechiness}', "
             f"acousticness='{self.acousticness}', "
             f"instrumentalness='{self.instrumentalness}', "
-            f"liviness='{self.liviness}', "
+            f"liveness='{self.liveness}', "
             f"valence='{self.valence}', "
             f"tempo='{self.tempo}', "
             f"time_signature='{self.time_signature}')>"
@@ -91,6 +108,15 @@ def read_db(db_class: str) -> pd.DataFrame:
         f":{get_dotenv('port_db')}/{get_dotenv('database_db')}",
     )
     return pd.read_sql_table(db_class, engine)
+
+
+def update_db(data: pd.Series, ids: pd.Series, db_name: str, column):
+    # db_DataFrame = read_db(db_name)
+    # df_new_values = pd.DataFrame(data.append(ids, ignore_index=True))
+
+    stmt = select(Albums).where(Albums.c.id in list(ids))
+    print(f"{stmt = }")
+    psql_query(stmt, "select")
 
 
 def write_into_db(data: pd.DataFrame, db_name: str):
@@ -113,9 +139,31 @@ def write_into_db(data: pd.DataFrame, db_name: str):
             )
             for i in range(len(data))
         ]
-    else:
+    elif db_name == "tracks":
         db_class = Tracks
-        # TODO: add data cleaning to save tracks
+        data_local = [
+            db_class(
+                id=data.iloc[i]["id"],
+                name=data.iloc[i]["name"],
+                album_id=data.iloc[i]["album_id"],
+                popularity=data.iloc[i]["popularity"],
+                duration_ms=data.iloc[i]["duration_ms"],
+                explicit=data.iloc[i]["explicit"],
+                danceability=data.iloc[i]["danceability"],
+                energy=data.iloc[i]["energy"],
+                key=data.iloc[i]["key"],
+                loudness=data.iloc[i]["loudness"],
+                mode=data.iloc[i]["mode"],
+                speechiness=data.iloc[i]["speechiness"],
+                acousticness=data.iloc[i]["acousticness"],
+                instrumentalness=data.iloc[i]["instrumentalness"],
+                liveness=data.iloc[i]["liveness"],
+                valence=data.iloc[i]["valence"],
+                tempo=data.iloc[i]["tempo"],
+                time_signature=data.iloc[i]["time_signature"],
+            )
+            for i in range(len(data))
+        ]
 
     commit_db(db_class, data_local)
     print_message("Success", f"{len(data)} entries saved into database.", "s")
@@ -125,8 +173,8 @@ def commit_db(table: Any, data: pd.DataFrame):
     """Commit new tracks or albums into db trendfy
 
     Keyword arguments:
-    table -- to add into
-    data --
+    table -- to add into.
+    data -- DataFrame to insert into.
     """
     engine = create_engine(
         f"postgresql://{get_dotenv('user_db')}:"

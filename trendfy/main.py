@@ -1,20 +1,22 @@
 from typing import Tuple
-from trendfy.params import STYLES, YEARS
+from trendfy.params import STYLES, YEARS, MAX_REQ_ALBUMS, MAX_REQ_TRACKS
 from trendfy.trend import Trendfy
 
 
 def menu() -> Tuple[bool, int, int, str]:
     resp_overwrite = input(
-        "\n\nWould you like to overwrite existing data? [y/N]\n-->:"
+        "\nWould you like to overwrite existing data? [y/N]\n-->:"
     ).lower()
     overwrite = True if resp_overwrite == "y" else False
 
     type_error = True
     while type_error:
-        resp_max_repertoire = input("Max resquests of repertoire (50)\n-->:")
+        resp_max_repertoire = input(
+            f"\nMax resquests of repertoire ({MAX_REQ_ALBUMS})\n-->:"
+        )
         try:
             if resp_max_repertoire == "":
-                max_repertoire = 50
+                max_repertoire = MAX_REQ_ALBUMS
             else:
                 max_repertoire = int(resp_max_repertoire)
 
@@ -25,10 +27,10 @@ def menu() -> Tuple[bool, int, int, str]:
 
     type_error = True
     while type_error:
-        resp_max_tracks = input("\n\nMax resquests of tracks (30)\n-->:")
+        resp_max_tracks = input(f"\nMax resquests of tracks ({MAX_REQ_TRACKS})\n-->:")
         try:
             if resp_max_tracks == "":
-                max_ids_request = 30
+                max_ids_request = MAX_REQ_TRACKS
             else:
                 max_ids_request = int(resp_max_tracks)
         except ValueError:
@@ -37,9 +39,9 @@ def menu() -> Tuple[bool, int, int, str]:
             type_error = False
 
     resp_start_from = input(
-        "\n\nWhere would you like to begin? [B: begin / t: tracks / d: details]\n-->:"
+        "\nWhere would you like to begin? [A: albums / t: tracks]\n-->:"
     ).lower()
-    start_from = resp_start_from if resp_start_from in ["b", "t", "d"] else "b"
+    start_from = resp_start_from if resp_start_from in ["a", "t"] else "a"
 
     return overwrite, max_repertoire, max_ids_request, start_from
 
