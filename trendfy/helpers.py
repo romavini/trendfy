@@ -1,14 +1,13 @@
-import json
+from typing import Any, Callable, Tuple
 import os
-import pandas as pd
 from dotenv import load_dotenv
 import traceback
 from spotipy.exceptions import SpotifyException
-from requests.exceptions import HTTPError, ReadTimeout
+from requests.exceptions import HTTPError, ReadTimeout, ConnectionError  # type: ignore
 
 
-def exception_handler(func):
-    def wrapper(*args, **kwargs):
+def exception_handler(func: Callable) -> Callable:
+    def wrapper(*args, **kwargs) -> Tuple[Any, int]:
         res = None
         exception_raised = 1
 
@@ -62,6 +61,12 @@ def exception_handler(func):
                 f"Connection reset by peer.\n{traceback.format_exc()}",
                 "e",
             )
+        except ConnectionError:
+            print_message(
+                "ConnectionError",
+                f"Connection aborted.\n{traceback.format_exc()}",
+                "e",
+            )
         except KeyboardInterrupt:
             print_message(
                 "KeyboardInterrupt",
@@ -75,15 +80,6 @@ def exception_handler(func):
         return res, exception_raised
 
     return wrapper
-
-
-def read_json_to_df(filename):
-    with open(f"{filename}.json", "r") as f:
-        dict_json = json.load(f)
-
-    df = pd.DataFrame(dict_json["data"], columns=dict_json["columns"])
-
-    return df
 
 
 def print_message(status: str, text: str, message_type: str = "n"):
@@ -119,4 +115,4 @@ def print_message(status: str, text: str, message_type: str = "n"):
 
 def get_dotenv(envname):
     load_dotenv()
-    return os.getenv(f"SPOTIFY_{envname}")
+    return os.getenv(f"{envname}")

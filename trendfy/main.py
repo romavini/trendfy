@@ -1,8 +1,29 @@
-from trendfy.params import STYLES, YEARS
+from trendfy.params import STYLES, YEARS, MAX_REQ_ALBUMS
 from trendfy.trend import Trendfy
 
 
+def menu() -> int:
+    type_error = True
+    while type_error:
+        resp_max_repertoire = input(
+            f"\nMax resquests of repertoire ({MAX_REQ_ALBUMS})\n-->:"
+        )
+        try:
+            if resp_max_repertoire == "":
+                max_repertoire = MAX_REQ_ALBUMS
+            else:
+                max_repertoire = int(resp_max_repertoire)
+
+        except ValueError:
+            print("Response must be a number.")
+        else:
+            type_error = False
+
+    return max_repertoire
+
+
 if __name__ == "__main__":
-    trendfy = Trendfy()
-    # trendfy.colect_tracks(STYLES, YEARS, type="playlist")
-    trendfy.colect_tracks(STYLES, YEARS, repertoire_type="album")
+    max_repertoire = menu()
+    trendfy = Trendfy(max_repertoire, STYLES, YEARS)
+
+    trendfy.colector_runner()

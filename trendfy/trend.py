@@ -1,29 +1,43 @@
 import sys
+from typing import List
+from trendfy.psql.main import write_into_db
 from trendfy.spotify_colect import Colect
-from trendfy.helpers import print_message, read_json_to_df
+from trendfy.helpers import print_message
 
 
-class Trendfy:
-    def __init__(self):
-        self.colect = Colect()
-
-    def colect_tracks(self, styles, years, repertoire_type="album"):
-        df_repertoire = self.colect.search_repertoires(styles, years, repertoire_type)
-        print(f"{df_repertoire['style'].unique()=}")  # debug
-        print_message(
-            "Success",
-            f"{len(df_repertoire)} {repertoire_type} collected. "
-            f"Expected {df_repertoire['total_tracks'].sum()} tracks.",
-            "s",
+class Trendfy(Colect):
+    def __init__(
+        self,
+        max_repertoire: int,
+        styles: List[str],
+        years: range,
+    ):
+        super().__init__(
+            max_repertoire,
+            styles,
+            years,
         )
-        if len(df_repertoire) != 0:
-            self.colect.write_json(
-                df_repertoire,
-                data_type="df",
-                filename=f"df_repertoire_{repertoire_type}",
-                overwrite=self.colect.overwrite,
-            )
-        else:
+
+        self.styles = styles
+        self.years = years
+
+    def colector_runner(
+        self,
+    ):
+        """"""
+        all_styles, err = self.get_styles()
+
+        if err == 2:
+            raise KeyboardInterrupt
+
+        if self.styles is None:
+            self.styles = all_styles
+        elif any([style not in all_styles for style in self.styles]):
+            raise Exception
+
+        df_repertoire = self.search_repertoires()
+
+        if len(df_repertoire) == 0:
             print_message(
                 "Success",
                 "No new data to be saved.",
@@ -31,52 +45,30 @@ class Trendfy:
             )
             sys.exit()
 
-        df_track = self.colect.search_tracks_from_repertoire(
-            df_repertoire, repertoire_type
+        write_into_db(df_repertoire, "albums")
+
+        print_message(
+            "Success",
+            f"{len(df_repertoire)} albums collected. "
+            f"Expected {df_repertoire['n_of_tracks'].sum()} tracks.",
+            "s",
         )
-        print(f"\n{df_track['style'].unique()=}")  # debug
-        print_message("Success", f"{len(df_track)} tracks collected", "s")
-        if len(df_track) != 0:
-            self.colect.write_json(
-                df_track,
-                data_type="df",
-                filename="df_tracks",
-                overwrite=self.colect.overwrite,
-            )
-        else:
+
+        df_track = self.search_tracks_from_repertoire(df_repertoire)
+
+        if len(df_track) == 0:
             print_message(
                 "Success",
                 "No new data to be saved.",
                 "s",
             )
             sys.exit()
-
-        if not self.colect.overwrite:
-            try:
-                print_message("Checking...", "Removing duplicated files.", "n")
-                old_df = read_json_to_df("df_track_details")
-                df_track = self.colect.check_existent_tracks(df_track, old_df)
-                print_message("Success", "Duplicates removed", "s")
-            except FileNotFoundError:
-                print_message("Success", "No file to have duplicates", "s")
-
-        tracks_details = self.colect.search_track_details(df_track)
-        print(f"end: {tracks_details['style'].unique()=}")  # debug
-        print_message(
-            "Success",
-            f"{len(tracks_details)} set of detailed tracks collected",
-            "s",
-        )
-        if len(tracks_details) != 0:
-            self.colect.write_json(
-                tracks_details,
-                data_type="df",
-                filename="df_track_details",
-                overwrite=self.colect.overwrite,
-            )
         else:
-            print_message(
-                "Success",
-                "No new data to be saved.",
-                "s",
-            )
+            write_into_db(df_track, "tracks")
+
+        # update_db(
+        #     df_track["album_popularity"],
+        #     df_track["id"],
+        #     "albums",
+        #     "popularity",
+        # )
