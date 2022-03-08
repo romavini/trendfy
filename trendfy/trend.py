@@ -1,61 +1,60 @@
 import sys
-from typing import List, Union
-from trendfy.psql.main import read_db, update_db, write_into_db
+from typing import List
+from trendfy.psql.main import write_into_db
 from trendfy.spotify_colect import Colect
 from trendfy.helpers import print_message
 
 
-class Trendfy:
+class Trendfy(Colect):
     def __init__(
         self,
-        overwrite: bool,
         max_repertoire: int,
-        max_ids_request: int,
-        start_from: str,
+        styles: List[str],
+        years: range,
     ):
-        self.colect = Colect(
-            overwrite=overwrite,
-            max_repertoire=max_repertoire,
-            max_ids_request=max_ids_request,
+        super().__init__(
+            max_repertoire,
+            styles,
+            years,
         )
-        self.start_from = start_from
+
+        self.styles = styles
+        self.years = years
 
     def colector_runner(
         self,
-        styles: Union[List[str], None],
-        years: range,
-        repertoire_type: str = "album",
     ):
         """"""
-        if self.start_from == "a":
-            if styles is None:
-                styles = self.colect.get_styles()
+        all_styles, err = self.get_styles()
 
-            df_repertoire = self.colect.search_repertoires(styles, years, repertoire_type)
+        if err == 2:
+            raise KeyboardInterrupt
 
-            if len(df_repertoire) == 0:
-                print_message(
-                    "Success",
-                    "No new data to be saved.",
-                    "s",
-                )
-                sys.exit()
+        if self.styles is None:
+            self.styles = all_styles
+        elif any([style not in all_styles for style in self.styles]):
+            raise Exception
 
-            write_into_db(df_repertoire, "albums")
+        df_repertoire = self.search_repertoires()
 
-        elif self.start_from == "t":
-            df_repertoire = read_db("albums")
+        if len(df_repertoire) == 0:
+            print_message(
+                "Success",
+                "No new data to be saved.",
+                "s",
+            )
+            sys.exit()
+
+        write_into_db(df_repertoire, "albums")
 
         print_message(
             "Success",
-            f"{len(df_repertoire)} {repertoire_type} collected. "
+            f"{len(df_repertoire)} albums collected. "
             f"Expected {df_repertoire['n_of_tracks'].sum()} tracks.",
             "s",
         )
 
-        df_track = self.colect.search_tracks_from_repertoire(
-            df_repertoire, repertoire_type
-        )
+        df_track = self.search_tracks_from_repertoire(df_repertoire)
 
         if len(df_track) == 0:
             print_message(
@@ -67,9 +66,9 @@ class Trendfy:
         else:
             write_into_db(df_track, "tracks")
 
-        update_db(
-            df_track["album_popularity"],
-            df_track["id"],
-            "albums",
-            "popularity",
-        )
+        # update_db(
+        #     df_track["album_popularity"],
+        #     df_track["id"],
+        #     "albums",
+        #     "popularity",
+        # )

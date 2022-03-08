@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  db:
+    container_name: pg_container
+    image: 'postgres:latest'
+    restart: always
+    environment:
+      POSTGRES_USER: ${user_db}
+      POSTGRES_PASSWORD: ${password_db}
+      POSTGRES_DB: ${database_db}
+    ports:
+      - "${port_db}:${port_db}"
+    volumes:
+      - pg_data:/var/lib/postgresql/data/
+volumes:
+  pg_data:
