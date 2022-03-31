@@ -1,9 +1,11 @@
-from typing import Any, Callable, Tuple
 import os
-from dotenv import load_dotenv
 import traceback
+from typing import Any, Callable, Tuple
+
+from dotenv import load_dotenv
+from requests.exceptions import (ConnectionError, HTTPError,  # type: ignore
+                                 ReadTimeout)
 from spotipy.exceptions import SpotifyException
-from requests.exceptions import HTTPError, ReadTimeout, ConnectionError  # type: ignore
 
 
 def exception_handler(func: Callable) -> Callable:
