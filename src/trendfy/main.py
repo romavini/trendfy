@@ -1,4 +1,4 @@
-from trendfy.params import STYLES, YEARS, MAX_REQ_ALBUMS
+from trendfy.params import MAX_REQ_ALBUMS, STYLES, YEARS
 from trendfy.trend import Trendfy
 
 

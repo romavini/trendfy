@@ -1,26 +1,18 @@
-from trendfy.helpers import get_dotenv, print_message
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, List, Union
+
+import numpy as np
 import pandas as pd
 import psycopg2 as psql  # type: ignore
 from psycopg2.extensions import register_adapter  # type: ignore
-from sqlalchemy import (
-    select,
-    Column,
-    Integer,
-    String,
-    Float,
-    DateTime,
-    Boolean,
-    create_engine,
-)
+from sqlalchemy import (Boolean, Column, DateTime, Float, Integer, String,
+                        create_engine, select)
+from sqlalchemy.engine import Dialect
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.schema import ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-
-# from sqlalchemy.ext import IntegrityError
-import numpy as np
+from trendfy.helpers import get_dotenv, print_message
 
 
 def addapt_numpy_float64(numpy_float64):
@@ -100,13 +92,14 @@ class Tracks(Base):  # type: ignore
         )
 
 
-def read_db(table_name: str) -> pd.DataFrame:
-    path_db = (
-        f"postgresql://{get_dotenv('user_db')}:"
-        f"{get_dotenv('password_db')}@{get_dotenv('host_db')}"
-        f":{get_dotenv('port_db')}/{get_dotenv('database_db')}"
-    )
-    engine = create_engine(path_db)
+def read_db(table_name: str, engine: Dialect = None) -> pd.DataFrame:
+    if engine is None:
+        path_db = (
+            f"postgresql://{get_dotenv('user_db')}:"
+            f"{get_dotenv('password_db')}@{get_dotenv('host_db')}"
+            f":{get_dotenv('port_db')}/{get_dotenv('database_db')}"
+        )
+        engine = create_engine(path_db)
     return pd.read_sql_table(table_name, engine)
 
 
@@ -134,9 +127,7 @@ def write_into_db(data: pd.DataFrame, db_name: str):
                 name=data.iloc[i]["name"],
                 artist=data.iloc[i]["artist"],
                 style=data.iloc[i]["style"],
-                release_date=datetime.strptime(
-                    data.iloc[i]["release_date"], "%Y-%m-%d"
-                )
+                release_date=datetime.strptime(data.iloc[i]["release_date"], "%Y-%m-%d")
                 if data.iloc[i]["release_date"].count("-") == 2
                 else datetime.strftime(
                     datetime.strptime(data.iloc[i]["release_date"], "%Y-%m"),
@@ -222,17 +213,13 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
             error_in_commit = True
             while error_in_commit:
                 try:
-                    session.add_all(
-                        [value for value in data if value.id in ids_to_add]
-                    )
+                    session.add_all([value for value in data if value.id in ids_to_add])
                     session.commit()
                     error_in_commit = False
                 except Exception as e:
                     if "DETAIL:  Key (id)" in e.args[0]:
                         id_err = (
-                            e.args[0]
-                            .split("DETAIL:  Key (id)=(")[1]
-                            .split(") already exists")[0]
+                            e.args[0].split("DETAIL:  Key (id)=(")[1].split(") already exists")[0]
                         )
                         ids_to_add = ids_to_add - set([id_err])
                         session.rollback()
@@ -244,9 +231,7 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
                             .split(") is not present in table")[0]
                         )
                         tracks_to_remove = [
-                            value.id
-                            for value in data
-                            if value.album_id == album_id_err
+                            value.id for value in data if value.album_id == album_id_err
                         ]
                         ids_to_add = ids_to_add - set(tracks_to_remove)
                         session.rollback()
@@ -256,7 +241,7 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
                         )
 
 
-def psql_connect(func: Callable) -> Callable:
+def psql_connect(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
     """Connect to DB."""
 
     def wrapper(*args, **kwargs) -> Any:
