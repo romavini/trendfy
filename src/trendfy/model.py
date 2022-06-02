@@ -1,83 +1,104 @@
-import glob
+import pandas as pd
 
 
-class Model:
-    def __init__(self):
-        pass
+class ModelSklearnTrendfy:
+    def select_training_data(self, df):
+        """
+        Selects the training data from the dataframe
+        :param data: dataframe
+        :return: dataframe
+        """
+        df_features = df.loc[
+            :,
+            [
+                "id_fromtrack",
+                "album_id",
+                "release_date",
+                "name_fromtrack",
+                "artist",
+                "popularity_fromtrack",
+                "duration_ms",
+                "explicit",
+                "danceability",
+                "energy",
+                "key",
+                "loudness",
+                "mode",
+                "speechiness",
+                "acousticness",
+                "instrumentalness",
+                "liveness",
+                "valence",
+                "tempo",
+                "time_signature",
+            ],
+        ]
+        df_features = df_features.sort_values(by="release_date").set_index("release_date")
+        df_100top_table = (
+            df_features.sort_values(by="popularity_fromtrack", ascending=False).iloc[:1000].copy()
+        )
+        df_100lower_table = (
+            df_features.query("popularity_fromtrack == 0")
+            .sort_values(by="release_date", ascending=False)
+            .iloc[:1000]
+            .copy()
+        )
 
-    def recursive_rev(self, current_rev, list_revs):
-            for num, rev in enumerate(list_revs):
-                self.revx(current, rev, num)
+        self.df_dict = {}
+        self.df_dict["original_df"] = pd.concat(
+            [
+                df_100top_table.loc[
+                    :,
+                    [
+                        "id_fromtrack",
+                        "album_id",
+                        "duration_ms",
+                        "explicit",
+                        "danceability",
+                        "energy",
+                        "key",
+                        "loudness",
+                        "mode",
+                        "speechiness",
+                        "acousticness",
+                        "instrumentalness",
+                        "liveness",
+                        "valence",
+                        "tempo",
+                        "time_signature",
+                    ],
+                ],
+                df_100lower_table.loc[
+                    :,
+                    [
+                        "id_fromtrack",
+                        "album_id",
+                        "duration_ms",
+                        "explicit",
+                        "danceability",
+                        "energy",
+                        "key",
+                        "loudness",
+                        "mode",
+                        "speechiness",
+                        "acousticness",
+                        "instrumentalness",
+                        "liveness",
+                        "valence",
+                        "tempo",
+                        "time_signature",
+                    ],
+                ],
+            ]
+        )
 
-    def revx(self, rev_current, rev, num):
+        y_list = [1] * len(df_100top_table)
+        y_list += [0] * len(df_100lower_table)
 
-        if (rev - rev_current) > 1 or num > 0:
+        self.df_dict["original_df"]["class"] = y_list
+        self.df_dict["shuffle_df"] = self.df_dict["original_df"].sample(frac=1, random_state=42)
 
-        # Write from mean previvaz weeks out
-        text_files = glob.glob("input/previvaz_out/*.DAT", recursive=True)
-        text_files.sort(key=self.sortKeyFunc)
-
-        text = ''
-
-        predictors = self.read_predictors()
-        for nline, file in enumerate(text_files, start=1):
-            with open(file, encoding="ISO-8859-1") as currentFile:
-                previvaz_text = currentFile.readlines()
-
-            previvaz_text = currentFile.readlines()
-
-            means = [round(float(previvaz_text[1][25:33].strip())),
-                     round(float(previvaz_text[1][34:42].strip())),
-                     round(float(previvaz_text[1][43:51].strip())),
-                     round(float(previvaz_text[1][52:60].strip())),
-                     round(float(previvaz_text[1][61:69].strip())),
-                     round(float(previvaz_text[1][70:78].strip()))]
-
-            if predictors.loc[predictors.cod_posto == int(previvaz_text[1][5:9]),
-                        ['tipo_preditor']].values[0][0] in ['Agente', 'Calculado',
-                                               'Regressão Diária', 'Estimado*']:
-                text += str(nline).rjust(6)
-                text += cod_posto.rjust(5)
-
-                # if cod_posto == line[8:11].strip():
-
-                for j, mean in enumerate(means):
-                    text += str(mean).rjust(10)
-
-                text += '\n'
-
-            elif predictors.loc[predictors.cod_posto == int(previvaz_text[1][5:9]),
-                        ['tipo_preditor']].values[0][0] in ['SMAP', 'CPINS']:
-
-                text += str(nline).rjust(6)
-                text += cod_posto.rjust(5)
-
-                # Write from mean SMAP weeks
-                df = pd.read_csv(self.mean_chuva_vazao)
-                weeks = df.loc[df['Código Posto'] == int(previvaz_text[1][5:9])].iloc[0, -3-rev:-1]
-
-                for week in weeks:
-                    text += str(int(float(week))).rjust(10)
-
-
-                for j, mean in enumerate(means[:4-rev]):
-                    text += str(mean).rjust(10)
-                text += '\n'
-
-            else:
-                print('\n')
-                print("ERROR IN PREVS MOUNTING!")
-                print('Post:', previvaz_text[1][5:9])
-                print('\n')
-
-        with open(f"output/0/Prevs_VE_202201.rv{rev}", 'w') as f:
-            f.writelines(text)
-
-        revisao = f'rv{rev}'
-        #self.update_prevs(revisao)
-
-        return True
-
-if __name__ == '__main__':
-    model = Model()
-    model.recursive_rev()
+        self.df_dict["y_train"] = self.df_dict["shuffle_df"]["class"]
+        self.df_dict["X_train"] = (
+            self.df_dict["shuffle_df"].drop(columns=["id_fromtrack", "album_id", "class"]).values
+        )
