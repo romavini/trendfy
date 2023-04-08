@@ -81,7 +81,6 @@ class Colect:
 
     def append_albums_to_df(
         self,
-        albums_df: pd.DataFrame,
         albums_response: List[Any],
         style: str,
         year: int,
@@ -105,43 +104,42 @@ class Colect:
 
             albums_list.append(dict_styles)
 
-        df_repertoire = pd.concat([albums_df, pd.DataFrame(albums_list)], ignore_index=True)
+        return pd.DataFrame(albums_list)
 
-        return df_repertoire
-
-    def search_repertoires(
+    def iter_search_repertoires(
         self,
     ) -> pd.DataFrame:
         """Return the response of the search given years and styles"""
+
         df_repertoire = pd.DataFrame()
-
-        for year in self.years:  # type: ignore
-            for style in self.styles:  # type: ignore
-                search_str = f"{style} year:{year}"
-                try:
-                    repertoire_response, exception_raised = self.get_spot_repertoire(search_str, style, year)
-                    print(search_str, repertoire_response, exception_raised)
-
-                    df_repertoire = self.append_albums_to_df(df_repertoire, repertoire_response, style, year)
-
-                except KeyboardInterrupt:
-                    if len(df_repertoire) != 0:
-                        resp = input(
-                            f"Got about to {len(df_repertoire)} " f"album(s)." " Would you like to proceed? [y/N]: "
-                        ).lower()
-
-                        if resp == "y":
-                            return df_repertoire
-                    else:
-                        print_message(
-                            "Empty List",
-                            "No data to proceed. Exiting...",
-                            "e",
-                        )
-
-                    sys.exit()
+        for year in self.years:
+            for style in self.styles:
+                df_repertoire = pd.concat([df_repertoire, self.search_repertoires(style, year)], ignore_index=True)
 
         return df_repertoire
+
+    def search_repertoires(self, style: str, year: int) -> pd.DataFrame:
+        search_str = f"{style} year:{year}"
+        try:
+            repertoire_response, _ = self.get_spot_repertoire(search_str, style, year)
+            new_df = self.append_albums_to_df(repertoire_response, style, year)
+
+            return new_df
+        except KeyboardInterrupt:
+            if len(new_df) == 0:
+                print_message(
+                    "Empty List",
+                    "No data to proceed. Exiting...",
+                    "e",
+                )
+                sys.exit()
+
+            resp = input(f"Got about to {len(new_df)} " f"album(s)." " Would you like to proceed? [y/N]: ").lower()
+
+            if resp == "y":
+                return new_df
+
+            sys.exit()
 
     @exception_handler
     def get_spot_tracks_in_repertoire(self, repertoire_ids: List[str]) -> List[Dict[str, Any]]:
@@ -319,17 +317,13 @@ class Colect:
         df_track -- list of dictionaries with tracks
         """
         ids = list(set(df_track["track_id"]))
-        features_list = []
+        features_list: List[Any] = []
 
         for batch in range(((len(ids) - 1) // self.limit_by_request) + 1):
             search_ids = ids[self.limit_by_request * batch : self.limit_by_request * (batch + 1)]
-            features_responde, exception_raised = self.get_spot_details(search_ids)
+            features_response, _ = self.get_spot_details(search_ids)
 
-            if exception_raised == 2:
-                sys.exit()
-
-            if features_responde is not None:
-                features_list.extend(features_responde)
+            features_list = self.insert_into_features(features_list, features_response)
 
         if len(features_list) == 0:
             print_message(
@@ -339,9 +333,7 @@ class Colect:
             )
             sys.exit()
 
-        while None in features_list:
-            features_list.remove(None)
-
+        features_list = [feature for feature in features_list if feature is not None]
         features_df = pd.DataFrame(features_list)
 
         df_track.drop_duplicates(subset=["track_id", "repertoire_id"], inplace=True)
@@ -354,6 +346,12 @@ class Colect:
         ).drop_duplicates(subset=["track_id", "repertoire_id"])
 
         return df_details
+
+    def insert_into_features(self, features_list: List[Any], features_response: List[Any]) -> List[Any]:
+        if features_response is not None:
+            features_list.extend(features_response)
+
+        return features_list
 
     @exception_handler
     def get_spot_details(self, search_ids: List[str]) -> List[Dict[str, Any]]:

@@ -70,8 +70,8 @@ def exception_handler(func: Any) -> Any:
                 f"Connection aborted.\n{traceback.format_exc()}",
                 "e",
             )
-        except KeyboardInterrupt:
-            raise KeyboardInterrupt(print_message("KeyboardInterrupt", "Step stopped by user.", "e", return_txt=True))
+        # except KeyboardInterrupt as exc:
+        #     raise KeyboardInterrupt from exc
         else:
             exception_raised = 0
 
@@ -80,7 +80,7 @@ def exception_handler(func: Any) -> Any:
     return wrapper
 
 
-def print_message(status: str, text: Any, message_type: str = "n", return_txt: bool = False):
+def print_message(status: str, text: Any, message_type: str = "n"):
     """Print error given Exception
 
     Keyword argument:
@@ -101,9 +101,6 @@ def print_message(status: str, text: Any, message_type: str = "n", return_txt: b
         message_color = "\033[33m"
         eom = ""
     message = "[" + message_color + f"{status}" + "\033[0m" + "]" + message_color + " -> " + "\033[0m" + f"{text}{eom}"
-
-    if return_txt:
-        return message
 
     logging.info(message)
 

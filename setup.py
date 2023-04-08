@@ -12,8 +12,7 @@ setup(
     author="Vinícius Romano",
     author_email="mdcdxcvi@gmail.com",
     include_package_data=True,
-    python_requires=">=3.6.0",
+    python_requires=">=3.8.0",
     packages=find_packages(exclude=("tests",)),
     install_requires=requirements,
 )
-

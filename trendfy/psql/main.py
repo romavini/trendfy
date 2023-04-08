@@ -10,8 +10,9 @@ from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, create
 from sqlalchemy.engine import Dialect  # type: ignore
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
-from sqlalchemy.sql.schema import ForeignKey  # type: ignore
+from sqlalchemy.sql.schema import ForeignKey
 
+from trendfy.errors import EmptyData  # type: ignore
 from trendfy.tools import get_dotenv, print_message
 
 
@@ -104,8 +105,6 @@ def read_db(table_name: str, engine: Dialect = None) -> pd.DataFrame:
 
 
 def update_db(data: pd.Series, ids: pd.Series, db_name: str, column: str):
-    # db_DataFrame = read_db(db_name)
-    # df_new_values = pd.DataFrame(data.append(ids, ignore_index=True))
     if db_name == "albums":
         db_class = Albums
     if db_name == "tracks":
@@ -117,58 +116,8 @@ def update_db(data: pd.Series, ids: pd.Series, db_name: str, column: str):
 
 
 def write_into_db(data: pd.DataFrame, db_name: str):
-    """"""
-    data_local = []
-    if db_name == "albums":
-        db_class = Albums
-        data_local = [
-            db_class(
-                id=data.iloc[i]["id"],
-                name=data.iloc[i]["name"],
-                artist=data.iloc[i]["artist"],
-                style=data.iloc[i]["style"],
-                release_date=datetime.strptime(data.iloc[i]["release_date"], "%Y-%m-%d")
-                if data.iloc[i]["release_date"].count("-") == 2
-                else datetime.strftime(
-                    datetime.strptime(data.iloc[i]["release_date"], "%Y-%m"),
-                    "%Y-%m-%d",
-                )
-                if "-" in data.iloc[i]["release_date"]
-                else datetime.strftime(
-                    datetime.strptime(data.iloc[i]["release_date"], "%Y"),
-                    "%Y-%m-%d",
-                ),
-                popularity=0,
-                n_of_tracks=int(data.iloc[i]["n_of_tracks"]),
-            )
-            for i in range(len(data))
-        ]
-    elif db_name == "tracks":
-        db_class = Tracks
-        data_local = [
-            db_class(
-                id=data.iloc[i]["id"],
-                name=data.iloc[i]["name"],
-                album_id=data.iloc[i]["album_id"],
-                popularity=int(data.iloc[i]["popularity"]),
-                duration_ms=int(data.iloc[i]["duration_ms"]),
-                explicit=data.iloc[i]["explicit"].astype("bool"),
-                danceability=data.iloc[i]["danceability"],
-                energy=data.iloc[i]["energy"],
-                key=data.iloc[i]["key"],
-                loudness=data.iloc[i]["loudness"],
-                mode=data.iloc[i]["mode"],
-                speechiness=data.iloc[i]["speechiness"],
-                acousticness=data.iloc[i]["acousticness"],
-                instrumentalness=data.iloc[i]["instrumentalness"],
-                liveness=data.iloc[i]["liveness"],
-                valence=data.iloc[i]["valence"],
-                tempo=data.iloc[i]["tempo"],
-                time_signature=data.iloc[i]["time_signature"],
-            )
-            for i in range(len(data))
-            if not data.iloc[i].isna()[0]
-        ]
+    """Write data into Database"""
+    data_local, db_class = structure_album(data) if db_name == "albums" else structure_track(data)
 
     commit_db(db_class, data_local)
     print_message(
@@ -176,6 +125,63 @@ def write_into_db(data: pd.DataFrame, db_name: str):
         f"{len(data_local)} entries saved into '{db_name}' database.",
         "s",
     )
+
+
+def structure_track(data):
+    db_class = Tracks
+    data_local = [
+        db_class(
+            id=data.iloc[i]["id"],
+            name=data.iloc[i]["name"],
+            album_id=data.iloc[i]["album_id"],
+            popularity=int(data.iloc[i]["popularity"]),
+            duration_ms=int(data.iloc[i]["duration_ms"]),
+            explicit=data.iloc[i]["explicit"].astype("bool"),
+            danceability=data.iloc[i]["danceability"],
+            energy=data.iloc[i]["energy"],
+            key=data.iloc[i]["key"],
+            loudness=data.iloc[i]["loudness"],
+            mode=data.iloc[i]["mode"],
+            speechiness=data.iloc[i]["speechiness"],
+            acousticness=data.iloc[i]["acousticness"],
+            instrumentalness=data.iloc[i]["instrumentalness"],
+            liveness=data.iloc[i]["liveness"],
+            valence=data.iloc[i]["valence"],
+            tempo=data.iloc[i]["tempo"],
+            time_signature=data.iloc[i]["time_signature"],
+        )
+        for i in range(len(data))
+        if not data.iloc[i].isna()[0]
+    ]
+
+    return data_local, db_class
+
+
+def structure_album(data):
+    db_class = Albums
+    data_local = [
+        db_class(
+            id=data.iloc[i]["id"],
+            name=data.iloc[i]["name"],
+            artist=data.iloc[i]["artist"],
+            style=data.iloc[i]["style"],
+            release_date=datetime.strptime(data.iloc[i]["release_date"], "%Y-%m-%d")
+            if data.iloc[i]["release_date"].count("-") == 2
+            else datetime.strftime(
+                datetime.strptime(data.iloc[i]["release_date"], "%Y-%m"),
+                "%Y-%m-%d",
+            )
+            if "-" in data.iloc[i]["release_date"]
+            else datetime.strftime(
+                datetime.strptime(data.iloc[i]["release_date"], "%Y"),
+                "%Y-%m-%d",
+            ),
+            popularity=0,
+            n_of_tracks=int(data.iloc[i]["n_of_tracks"]),
+        )
+        for i in range(len(data))
+    ]
+    return data_local, db_class
 
 
 def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
@@ -197,42 +203,51 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
 
     with Session() as session:
         # Request the ids from albums in database
-        db_ids_set = set([])
         db_ids = session.query(table.id).all()
-        for (db_id,) in db_ids:
-            db_ids_set.add(db_id)
+        db_ids_set = {db_id for db_id, in db_ids}
 
         # Get local ids from collection
-        local_ids = set([])
-        for value in data:
-            local_ids.add(value.id)
+        local_ids = {value.id for value in data}
 
         # Add non duplicates to database
         ids_to_add = local_ids - db_ids_set
-        if ids_to_add:
-            error_in_commit = True
-            while error_in_commit:
-                try:
-                    session.add_all([value for value in data if value.id in ids_to_add])
-                    session.commit()
-                    error_in_commit = False
-                except Exception as e:
-                    if "DETAIL:  Key (id)" in e.args[0]:
-                        id_err = e.args[0].split("DETAIL:  Key (id)=(")[1].split(") already exists")[0]
-                        ids_to_add = ids_to_add - set([id_err])
-                        session.rollback()
-                        print_message("Removing duplicate...", f"Id: {id_err}")
-                    elif "DETAIL:  Key (album_id)" in e.args[0]:
-                        album_id_err = (
-                            e.args[0].split("DETAIL:  Key (album_id)=(")[1].split(") is not present in table")[0]
-                        )
-                        tracks_to_remove = [value.id for value in data if value.album_id == album_id_err]
-                        ids_to_add = ids_to_add - set(tracks_to_remove)
-                        session.rollback()
-                        print_message(
-                            "Removing tracks of missing album...",
-                            f"Album Id: {album_id_err}",
-                        )
+
+        check_data_add(ids_to_add)
+
+        try_commit_data(data, session, ids_to_add)
+
+
+def try_commit_data(data, session, ids_to_add):
+    while True:
+        try:
+            session.add_all([value for value in data if value.id in ids_to_add])
+            session.commit()
+            break
+        except Exception as e:
+            ids_to_add = rollback_exception(data, session, ids_to_add, e)
+
+
+def check_data_add(ids_to_add):
+    if not ids_to_add:
+        raise EmptyData("No new data to add")
+
+
+def rollback_exception(data, session, ids_to_add, e):
+    if "DETAIL:  Key (id)" in e.args[0]:
+        id_err = e.args[0].split("DETAIL:  Key (id)=(")[1].split(") already exists")[0]
+        ids_to_add = ids_to_add - set([id_err])
+        session.rollback()
+        print_message("Removing duplicate...", f"Id: {id_err}")
+    elif "DETAIL:  Key (album_id)" in e.args[0]:
+        album_id_err = e.args[0].split("DETAIL:  Key (album_id)=(")[1].split(") is not present in table")[0]
+        tracks_to_remove = [value.id for value in data if value.album_id == album_id_err]
+        ids_to_add = ids_to_add - set(tracks_to_remove)
+        session.rollback()
+        print_message(
+            "Removing tracks of missing album...",
+            f"Album Id: {album_id_err}",
+        )
+    return ids_to_add
 
 
 def psql_connect(func: Any) -> Any:
@@ -270,24 +285,33 @@ def psql_query(cursor: Any = None):
     while True:
         query = input("Query: \n>>> ")
 
-        if query == "":
-            query = "select * from person"
-            type_query = "select"
-        else:
-            query_command = query.split()[0]
-            if "select" in query_command:
-                type_query = "select"
-            elif "delete" in query_command:
-                type_query = "delete"
-            else:
-                type_query = "select"
+        query, type_query = parse_query(query)
         cursor.execute(query)
 
         if type_query == "select":
-            rows = cursor.fetchall()
-            for row in rows:
-                print(f"{row}")
-            print(f"\n{len(rows)} matches.")
+            show_rows(cursor)
+
+
+def show_rows(cursor):
+    rows = cursor.fetchall()
+    for row in rows:
+        print(f"{row}")
+    print(f"\n{len(rows)} matches.")
+
+
+def parse_query(query):
+    if query == "":
+        query = "select * from person"
+        type_query = "select"
+    else:
+        query_command = query.split()[0]
+        if "select" in query_command:
+            type_query = "select"
+        elif "delete" in query_command:
+            type_query = "delete"
+        else:
+            type_query = "select"
+    return query, type_query
 
 
 if __name__ == "__main__":

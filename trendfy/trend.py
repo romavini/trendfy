@@ -28,12 +28,17 @@ class Trendfy(Colect):
         """Collector logic"""
         all_styles, _ = self.get_styles()
 
-        if self.styles is None:
-            self.styles = all_styles
-        elif any((error_style := style) not in all_styles for style in self.styles):
+        self.styles = all_styles if self.styles is None else self.styles
+
+        if any((error_style := style) not in all_styles for style in self.styles):
             raise ValueError(f"{error_style} not in style list of Spotify")
 
-        df_repertoire = self.search_repertoires()
+        df_repertoire = self.collect_n_save_repertoire()
+
+        self.collect_n_save_tracks(df_repertoire)
+
+    def collect_n_save_repertoire(self):
+        df_repertoire = self.iter_search_repertoires()
 
         if len(df_repertoire) == 0:
             print_message(
@@ -51,6 +56,9 @@ class Trendfy(Colect):
             "s",
         )
 
+        return df_repertoire
+
+    def collect_n_save_tracks(self, df_repertoire):
         df_track = self.search_tracks_from_repertoire(df_repertoire)
 
         if len(df_track) == 0:
@@ -60,12 +68,5 @@ class Trendfy(Colect):
                 "s",
             )
             sys.exit()
-        else:
-            write_into_db(df_track, "tracks")
 
-        # update_db(
-        #     df_track["album_popularity"],
-        #     df_track["id"],
-        #     "albums",
-        #     "popularity",
-        # )
+        write_into_db(df_track, "tracks")
