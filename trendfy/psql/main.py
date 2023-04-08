@@ -1,18 +1,18 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, List, Union
+from typing import Any, List, Union
 
 import numpy as np
 import pandas as pd
 import psycopg2 as psql  # type: ignore
 from psycopg2.extensions import register_adapter  # type: ignore
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, create_engine, select
-from sqlalchemy.engine import Dialect
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql.schema import ForeignKey
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, create_engine, select  # type: ignore
+from sqlalchemy.engine import Dialect  # type: ignore
+from sqlalchemy.ext.declarative import declarative_base  # type: ignore
+from sqlalchemy.orm import sessionmaker  # type: ignore
+from sqlalchemy.sql.schema import ForeignKey  # type: ignore
 
-from trendfy.helpers import get_dotenv, print_message
+from trendfy.tools import get_dotenv, print_message
 
 
 def addapt_numpy_float64(numpy_float64):
@@ -113,7 +113,7 @@ def update_db(data: pd.Series, ids: pd.Series, db_name: str, column: str):
 
     stmt = select(db_class).where(db_class.c.id in list(ids))
     print(f"{stmt = }")
-    psql_query(stmt, "select")
+    psql_query(stmt)
 
 
 def write_into_db(data: pd.DataFrame, db_name: str):
@@ -235,7 +235,7 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
                         )
 
 
-def psql_connect(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
+def psql_connect(func: Any) -> Any:
     """Connect to DB."""
 
     def wrapper(*args, **kwargs) -> Any:
@@ -248,8 +248,8 @@ def psql_connect(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
                 database=get_dotenv("database_db"),
             ) as conn:
                 print_message("Database", "Connected!", "s")
-                with conn.cursor() as c:
-                    res = func(*args, **kwargs, c=c)
+                with conn.cursor() as cursor:
+                    res = func(*args, **kwargs, cursor=cursor)
 
             return res
 
@@ -265,26 +265,26 @@ def psql_connect(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
 
 
 @psql_connect
-def psql_query(c: Any):
+def psql_query(cursor: Any = None):
     """Query the DB."""
     while True:
-        q = input("Query: \n>>> ")
+        query = input("Query: \n>>> ")
 
-        if q == "":
-            q = "select * from person"
-            type_q = "select"
+        if query == "":
+            query = "select * from person"
+            type_query = "select"
         else:
-            q_comp = q.split()[0]
-            if "select" in q_comp:
-                type_q = "select"
-            elif "delete" in q_comp:
-                type_q = "delete"
+            query_command = query.split()[0]
+            if "select" in query_command:
+                type_query = "select"
+            elif "delete" in query_command:
+                type_query = "delete"
             else:
-                type_q = "select"
-        c.execute(q)
+                type_query = "select"
+        cursor.execute(query)
 
-        if type_q == "select":
-            rows = c.fetchall()
+        if type_query == "select":
+            rows = cursor.fetchall()
             for row in rows:
                 print(f"{row}")
             print(f"\n{len(rows)} matches.")

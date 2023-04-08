@@ -7,7 +7,7 @@ testpaths = ["tests"]
 ignore_missing_imports = "True"
 
 [tool.pylint.messages_control]
-disable = ["W0621", "C0114", "C0115", "C0116", "C0301", "R0903", "W1203"]
+disable = ["C0114", "C0115", "C0116", "C0301", "R0903", "W0511", "W0621", "W0632", "W1203"]
 good-names = ["df"]
 
 [tool.black]

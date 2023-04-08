@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import create_engine
 
-from trendfy.helpers import get_dotenv
+from trendfy.tools import get_dotenv
 
 
 @pytest.fixture(scope="session")

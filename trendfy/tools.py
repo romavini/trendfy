@@ -1,14 +1,15 @@
 import logging
 import os
 import traceback
-from typing import Any, Callable, Tuple
+from typing import Any, Tuple
 
-from dotenv import load_dotenv
-from requests.exceptions import ConnectionError, HTTPError, ReadTimeout  # type: ignore
-from spotipy.exceptions import SpotifyException
+from dotenv import load_dotenv  # type: ignore
+from requests.exceptions import ConnectionError as RequestConnectionError  # type: ignore
+from requests.exceptions import HTTPError, ReadTimeout  # type: ignore
+from spotipy.exceptions import SpotifyException  # type: ignore
 
 
-def exception_handler(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
+def exception_handler(func: Any) -> Any:
     def wrapper(*args, **kwargs) -> Tuple[Any, int]:
         res = None
         exception_raised = 1
@@ -63,19 +64,14 @@ def exception_handler(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
                 f"Connection reset by peer.\n{traceback.format_exc()}",
                 "e",
             )
-        except ConnectionError:
+        except RequestConnectionError:
             print_message(
-                "ConnectionError",
+                "RequestConnectionError",
                 f"Connection aborted.\n{traceback.format_exc()}",
                 "e",
             )
         except KeyboardInterrupt:
-            print_message(
-                "KeyboardInterrupt",
-                "Step stopped by user.",
-                "e",
-            )
-            exception_raised = 2
+            raise KeyboardInterrupt(print_message("KeyboardInterrupt", "Step stopped by user.", "e", return_txt=True))
         else:
             exception_raised = 0
 
@@ -84,7 +80,7 @@ def exception_handler(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
     return wrapper
 
 
-def print_message(status: str, text: Any, message_type: str = "n"):
+def print_message(status: str, text: Any, message_type: str = "n", return_txt: bool = False):
     """Print error given Exception
 
     Keyword argument:
@@ -104,10 +100,12 @@ def print_message(status: str, text: Any, message_type: str = "n"):
     elif message_type == "n":
         message_color = "\033[33m"
         eom = ""
+    message = "[" + message_color + f"{status}" + "\033[0m" + "]" + message_color + " -> " + "\033[0m" + f"{text}{eom}"
 
-    logging.info(
-        "[" + message_color + f"{status}" + "\033[0m" + "]" + message_color + " -> " + "\033[0m" + f"{text}{eom}"
-    )
+    if return_txt:
+        return message
+
+    logging.info(message)
 
 
 def get_dotenv(envname):

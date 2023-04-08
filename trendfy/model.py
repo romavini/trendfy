@@ -2,7 +2,10 @@ import pandas as pd
 
 
 class ModelSklearnTrendfy:
-    def select_training_data(self, df):
+    def __init__(self):
+        self.df_dict = {}
+
+    def select_training_data(self, df: pd.DataFrame):
         """
         Selects the training data from the dataframe
         :param data: dataframe
@@ -42,7 +45,6 @@ class ModelSklearnTrendfy:
             .copy()
         )
 
-        self.df_dict = {}
         self.df_dict["original_df"] = pd.concat(
             [
                 df_100top_table.loc[

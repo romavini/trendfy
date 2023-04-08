@@ -1,18 +1,19 @@
 from typing import Any, Tuple
 
-import pytest
-from requests.exceptions import ConnectionError, HTTPError, ReadTimeout  # type: ignore
-from spotipy.exceptions import SpotifyException
+import pytest  # type: ignore
+from requests.exceptions import ConnectionError as RequestsConnectionError  # type: ignore
+from requests.exceptions import HTTPError, ReadTimeout  # type: ignore
+from spotipy.exceptions import SpotifyException  # type: ignore
 
-from trendfy.helpers import exception_handler
+from trendfy.tools import exception_handler
 
 
 @exception_handler
 def xfail(error=None):
     if error is None:
         return 2
-    else:
-        raise error
+
+    raise error
 
 
 @pytest.mark.parametrize(
@@ -26,7 +27,7 @@ def xfail(error=None):
         (HTTPError, (None, 1)),
         (SpotifyException, (None, 1)),
         (ConnectionResetError, (None, 1)),
-        (ConnectionError, (None, 1)),
+        (RequestsConnectionError, (None, 1)),
         (KeyboardInterrupt, (None, 2)),
         (None, (2, 0)),
     ],

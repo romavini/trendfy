@@ -1,9 +1,9 @@
 import sys
 from typing import List
 
-from trendfy.helpers import print_message
 from trendfy.psql.main import write_into_db
 from trendfy.spotify_colect import Colect
+from trendfy.tools import print_message
 
 
 class Trendfy(Colect):
@@ -25,16 +25,13 @@ class Trendfy(Colect):
     def colector_runner(
         self,
     ):
-        """"""
-        all_styles, err = self.get_styles()
-
-        if err == 2:
-            raise KeyboardInterrupt
+        """Collector logic"""
+        all_styles, _ = self.get_styles()
 
         if self.styles is None:
             self.styles = all_styles
-        elif any([style not in all_styles for style in self.styles]):
-            raise Exception
+        elif any((error_style := style) not in all_styles for style in self.styles):
+            raise ValueError(f"{error_style} not in style list of Spotify")
 
         df_repertoire = self.search_repertoires()
 
