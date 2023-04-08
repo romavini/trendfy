@@ -1,8 +1,9 @@
 import sys
 from typing import List
+
+from trendfy.helpers import print_message
 from trendfy.psql.main import write_into_db
 from trendfy.spotify_colect import Colect
-from trendfy.helpers import print_message
 
 
 class Trendfy(Colect):
@@ -49,8 +50,7 @@ class Trendfy(Colect):
 
         print_message(
             "Success",
-            f"{len(df_repertoire)} albums collected. "
-            f"Expected {df_repertoire['n_of_tracks'].sum()} tracks.",
+            f"{len(df_repertoire)} albums collected. " f"Expected {df_repertoire['n_of_tracks'].sum()} tracks.",
             "s",
         )
 

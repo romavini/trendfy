@@ -1,20 +1,14 @@
 # %%
 from dataclasses import dataclass
 from datetime import datetime
+
 import pandas as pd
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Float,
-    DateTime,
-    create_engine,
-)
+from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.schema import ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from trendfy.helpers import get_dotenv, read_json_to_df
 
+from trendfy.helpers import get_dotenv, read_json_to_df
 
 # %%
 df = read_json_to_df("../../df_repertoire_album")
@@ -97,9 +91,7 @@ albums = [
         style=df.iloc[i]["style"],
         release_date=df.iloc[i]["release_date"]
         if "-" in df.iloc[i]["release_date"]
-        else datetime.strftime(
-            datetime.strptime(df.iloc[i]["release_date"], "%Y"), "%Y/%m/%d"
-        ),
+        else datetime.strftime(datetime.strptime(df.iloc[i]["release_date"], "%Y"), "%Y/%m/%d"),
         popularity=0,
         n_of_tracks=int(df.iloc[i]["total_tracks"]),
     )

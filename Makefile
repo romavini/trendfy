@@ -9,8 +9,8 @@ run:
 check:
 	venv/bin/python -m isort trendfy/ tests/
 	venv/bin/python -m black trendfy/ tests/
-	venv/bin/python -m pylint --rcfile=../pyproject.toml trendfy/ tests/
-	venv/bin/python -m mypy --config-file ../pyproject.toml trendfy/ tests/
+	venv/bin/python -m pylint --rcfile=pyproject.toml trendfy/ tests/
+	venv/bin/python -m mypy --config-file pyproject.toml trendfy/ tests/
 	venv/bin/python -m flake8 trendfy/ tests/
 	venv/bin/python -m flake8 *.md Makefile --select=W291
 	venv/bin/python -m xenon trendfy/ --max-absolute A --max-modules A --max-average A
@@ -21,8 +21,8 @@ check:
 check2build:
 	venv/bin/python -m isort --check-only trendfy/ tests/
 	venv/bin/python -m black --check trendfy/ tests/
-	venv/bin/python -m pylint --rcfile=../pyproject.toml trendfy/ tests/
-	venv/bin/python -m mypy --config-file ../pyproject.toml trendfy/ tests/
+	venv/bin/python -m pylint --rcfile=pyproject.toml trendfy/ tests/
+	venv/bin/python -m mypy --config-file pyproject.toml trendfy/ tests/
 	venv/bin/python -m xenon trendfy/ --max-absolute A --max-modules A --max-average A
 	venv/bin/python -m xenon tests/ --no-assert --max-absolute A --max-modules A --max-average A
 	venv/bin/python -m bandit -q -r trendfy/

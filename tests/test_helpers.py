@@ -3,6 +3,7 @@ from typing import Any, Tuple
 import pytest
 from requests.exceptions import ConnectionError, HTTPError, ReadTimeout  # type: ignore
 from spotipy.exceptions import SpotifyException
+
 from trendfy.helpers import exception_handler
 
 

@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import create_engine
+
 from trendfy.helpers import get_dotenv
 
 

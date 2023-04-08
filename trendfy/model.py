@@ -34,9 +34,7 @@ class ModelSklearnTrendfy:
             ],
         ]
         df_features = df_features.sort_values(by="release_date").set_index("release_date")
-        df_100top_table = (
-            df_features.sort_values(by="popularity_fromtrack", ascending=False).iloc[:1000].copy()
-        )
+        df_100top_table = df_features.sort_values(by="popularity_fromtrack", ascending=False).iloc[:1000].copy()
         df_100lower_table = (
             df_features.query("popularity_fromtrack == 0")
             .sort_values(by="release_date", ascending=False)
@@ -99,6 +97,4 @@ class ModelSklearnTrendfy:
         self.df_dict["shuffle_df"] = self.df_dict["original_df"].sample(frac=1, random_state=42)
 
         self.df_dict["y_train"] = self.df_dict["shuffle_df"]["class"]
-        self.df_dict["X_train"] = (
-            self.df_dict["shuffle_df"].drop(columns=["id_fromtrack", "album_id", "class"]).values
-        )
+        self.df_dict["X_train"] = self.df_dict["shuffle_df"].drop(columns=["id_fromtrack", "album_id", "class"]).values
