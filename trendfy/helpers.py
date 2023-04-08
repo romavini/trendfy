@@ -1,14 +1,14 @@
+import logging
 import os
 import traceback
 from typing import Any, Callable, Tuple
 
 from dotenv import load_dotenv
-from requests.exceptions import (ConnectionError, HTTPError,  # type: ignore
-                                 ReadTimeout)
+from requests.exceptions import ConnectionError, HTTPError, ReadTimeout  # type: ignore
 from spotipy.exceptions import SpotifyException
 
 
-def exception_handler(func: Callable) -> Callable:
+def exception_handler(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
     def wrapper(*args, **kwargs) -> Tuple[Any, int]:
         res = None
         exception_raised = 1
@@ -84,7 +84,7 @@ def exception_handler(func: Callable) -> Callable:
     return wrapper
 
 
-def print_message(status: str, text: str, message_type: str = "n"):
+def print_message(status: str, text: Any, message_type: str = "n"):
     """Print error given Exception
 
     Keyword argument:
@@ -92,6 +92,9 @@ def print_message(status: str, text: str, message_type: str = "n"):
     message_type -- type of message print. can be 'e' for error, 's' for
     success, and 'n' for notification.
     """
+    logging_format = f"%(asctime)s - {__name__} - %(levelname)s:\n%(message)s"
+    logging.basicConfig(format=logging_format, level=logging.INFO, datefmt="%d-%m-%Y %H:%M:%S")
+
     if message_type == "e":
         message_color = "\033[91m"
         eom = ""
@@ -102,16 +105,8 @@ def print_message(status: str, text: str, message_type: str = "n"):
         message_color = "\033[33m"
         eom = ""
 
-    print(
-        "["
-        + message_color
-        + f"{status}"
-        + "\033[0m"
-        + "]"
-        + message_color
-        + " -> "
-        + "\033[0m"
-        + f"{text}{eom}"
+    logging.info(
+        "[" + message_color + f"{status}" + "\033[0m" + "]" + message_color + " -> " + "\033[0m" + f"{text}{eom}"
     )
 
 

@@ -17,6 +17,6 @@ class Analyse:
         print(f"{self.albums.dtypes = }")
 
 
-if __name__ == "__main__":
+def analyse():
     analyse = Analyse()
     analyse.status()

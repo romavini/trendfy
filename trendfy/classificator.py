@@ -1,4 +1,5 @@
 import pandas as pd
+
 from trendfy.model import ModelSklearnTrendfy
 
 

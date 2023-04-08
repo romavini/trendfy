@@ -1,3 +1,3 @@
-YEARS = range(1950, 2022)
+YEARS = range(2000, 2001)
 STYLES = ["rock"]
 MAX_REQ_ALBUMS = 50

@@ -6,12 +6,12 @@ import numpy as np
 import pandas as pd
 import psycopg2 as psql  # type: ignore
 from psycopg2.extensions import register_adapter  # type: ignore
-from sqlalchemy import (Boolean, Column, DateTime, Float, Integer, String,
-                        create_engine, select)
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, create_engine, select
 from sqlalchemy.engine import Dialect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.schema import ForeignKey
+
 from trendfy.helpers import get_dotenv, print_message
 
 
@@ -218,21 +218,15 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
                     error_in_commit = False
                 except Exception as e:
                     if "DETAIL:  Key (id)" in e.args[0]:
-                        id_err = (
-                            e.args[0].split("DETAIL:  Key (id)=(")[1].split(") already exists")[0]
-                        )
+                        id_err = e.args[0].split("DETAIL:  Key (id)=(")[1].split(") already exists")[0]
                         ids_to_add = ids_to_add - set([id_err])
                         session.rollback()
                         print_message("Removing duplicate...", f"Id: {id_err}")
                     elif "DETAIL:  Key (album_id)" in e.args[0]:
                         album_id_err = (
-                            e.args[0]
-                            .split("DETAIL:  Key (album_id)=(")[1]
-                            .split(") is not present in table")[0]
+                            e.args[0].split("DETAIL:  Key (album_id)=(")[1].split(") is not present in table")[0]
                         )
-                        tracks_to_remove = [
-                            value.id for value in data if value.album_id == album_id_err
-                        ]
+                        tracks_to_remove = [value.id for value in data if value.album_id == album_id_err]
                         ids_to_add = ids_to_add - set(tracks_to_remove)
                         session.rollback()
                         print_message(
@@ -272,7 +266,7 @@ def psql_connect(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
 
 @psql_connect
 def psql_query(c: Any):
-    """Quary the DB."""
+    """Query the DB."""
     while True:
         q = input("Query: \n>>> ")
 
