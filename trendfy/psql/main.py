@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from time import sleep
 from typing import Any, List, Union
 
 import numpy as np
@@ -118,7 +119,6 @@ def update_db(data: pd.Series, ids: pd.Series, db_name: str, column: str):
 def write_into_db(data: pd.DataFrame, db_name: str):
     """Write data into Database"""
     data_local, db_class = structure_album(data) if db_name == "albums" else structure_track(data)
-
     commit_db(db_class, data_local)
     print_message(
         "Success",
@@ -224,7 +224,12 @@ def try_commit_data(data, session, ids_to_add):
             session.commit()
             break
         except Exception as e:
-            ids_to_add = rollback_exception(data, session, ids_to_add, e)
+            print(e)
+            print_message("Rolling Back", "Trying to commit", "e")
+            try:
+                ids_to_add = rollback_exception(data, session, ids_to_add, e)
+            except AttributeError:
+                break
 
 
 def check_data_add(ids_to_add):
@@ -236,17 +241,19 @@ def rollback_exception(data, session, ids_to_add, e):
     if "DETAIL:  Key (id)" in e.args[0]:
         id_err = e.args[0].split("DETAIL:  Key (id)=(")[1].split(") already exists")[0]
         ids_to_add = ids_to_add - set([id_err])
-        session.rollback()
         print_message("Removing duplicate...", f"Id: {id_err}")
+
     elif "DETAIL:  Key (album_id)" in e.args[0]:
         album_id_err = e.args[0].split("DETAIL:  Key (album_id)=(")[1].split(") is not present in table")[0]
         tracks_to_remove = [value.id for value in data if value.album_id == album_id_err]
         ids_to_add = ids_to_add - set(tracks_to_remove)
-        session.rollback()
         print_message(
             "Removing tracks of missing album...",
             f"Album Id: {album_id_err}",
         )
+    else:
+        session.rollback()
+        raise AttributeError(e.args[0])
     return ids_to_add
 
 

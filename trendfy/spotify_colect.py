@@ -88,7 +88,6 @@ class Colect:
         """Append the infos of albums in a list of dictionaries."""
 
         albums_list = []
-        print_message("n", albums_response)
 
         for item in albums_response:
             dict_styles = {}

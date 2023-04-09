@@ -49,6 +49,7 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
+junittest.xml
 .cache
 nosetests.xml
 coverage.xml
