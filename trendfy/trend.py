@@ -1,7 +1,10 @@
 import sys
-from typing import List
+from typing import List, Optional
 
-from trendfy.psql.main import write_into_db
+import pandas as pd
+
+from trendfy.errors import EmptyData
+from trendfy.psql.main import read_db, write_into_db
 from trendfy.spotify_colect import Colect
 from trendfy.tools import print_message
 
@@ -9,18 +12,18 @@ from trendfy.tools import print_message
 class Trendfy(Colect):
     def __init__(
         self,
-        max_repertoire: int,
-        styles: List[str],
-        years: range,
+        max_repertoire: Optional[int] = None,
+        styles: Optional[List[str]] = None,
+        years: Optional[range] = None,
     ):
+        self.styles = styles  # type: ignore
+        self.years = years  # type: ignore
+
         super().__init__(
             max_repertoire,
-            styles,
-            years,
+            self.styles,
+            self.years,
         )
-
-        self.styles = styles
-        self.years = years
 
     def colector_runner(
         self,
@@ -47,14 +50,21 @@ class Trendfy(Colect):
                 "s",
             )
             sys.exit()
+        try:
+            write_into_db(df_repertoire, "albums")
 
-        write_into_db(df_repertoire, "albums")
-
-        print_message(
-            "Success",
-            f"{len(df_repertoire)} albums collected. " f"Expected {df_repertoire['n_of_tracks'].sum()} tracks.",
-            "s",
-        )
+            print_message(
+                "Success",
+                f"{len(df_repertoire)} albums collected. " f"Expected {df_repertoire['n_of_tracks'].sum()} tracks.",
+                "s",
+            )
+        except EmptyData:
+            print_message(
+                "Info",
+                f"{len(df_repertoire)} albums already in DB. "
+                f"Checking expected {df_repertoire['n_of_tracks'].sum()} tracks.",
+                "s",
+            )
 
         return df_repertoire
 
@@ -70,3 +80,23 @@ class Trendfy(Colect):
             sys.exit()
 
         write_into_db(df_track, "tracks")
+
+    def repair(self):
+        albums_db = read_db("albums")
+        print_message("Success", f"{albums_db.shape[0]} albums in DB", "s")
+        tracks_db = read_db("tracks")
+        print_message("Success", f"{tracks_db.shape[0]} tracks in DB", "s")
+        seek_tracks = self.search_tracks_from_repertoire(albums_db)
+        tracks_to_add = self.get_tracks_to_add(tracks_db, seek_tracks)
+        tracks_to_add = tracks_to_add.drop(columns=["album_popularity"])
+        if tracks_to_add.shape[0]:
+            print_message("Success", f"{tracks_to_add.shape[0]} tracks to be added in DB", "s")
+            write_into_db(tracks_to_add, "tracks")
+        else:
+            print_message("Success", "No tracks to be added in DB", "s")
+
+    @staticmethod
+    def get_tracks_to_add(tracks_db: pd.DataFrame, tracks_to_add: pd.DataFrame) -> pd.DataFrame:
+        ids_to_add = set(tracks_to_add.id) - set(tracks_db.id)
+
+        return tracks_to_add.loc[tracks_to_add.id.isin(ids_to_add)].copy()

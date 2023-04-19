@@ -1,11 +1,13 @@
+import logging
 from typing import Any, Tuple
 
 import pytest  # type: ignore
+from dotenv import load_dotenv
 from requests.exceptions import ConnectionError as RequestsConnectionError  # type: ignore
 from requests.exceptions import HTTPError, ReadTimeout  # type: ignore
 from spotipy.exceptions import SpotifyException  # type: ignore
 
-from trendfy.tools import exception_handler
+from trendfy.tools import exception_handler, get_dotenv, print_message
 
 
 @exception_handler
@@ -28,9 +30,33 @@ def xfail(error=None):
         (SpotifyException, (None, 1)),
         (ConnectionResetError, (None, 1)),
         (RequestsConnectionError, (None, 1)),
-        (KeyboardInterrupt, (None, 2)),
         (None, (2, 0)),
     ],
 )
 def test_exception_handler(error: Exception, expect_tuple: Tuple[int, Any]):
     assert xfail(error) == expect_tuple
+
+
+def test_exception_handler_KeyboardInterrupt():
+    with pytest.raises(KeyboardInterrupt):
+        xfail(KeyboardInterrupt)
+
+
+def test_env_file_exist():
+    assert load_dotenv()
+
+
+@pytest.mark.parametrize(
+    "env_variable_name",
+    [
+        "SPOTIFY_CLIENT_ID",
+        "SPOTIFY_CLIENT_SECRET",
+        "user_db",
+        "password_db",
+        "host_db",
+        "port_db",
+        "database_db",
+    ],
+)
+def test_get_dotenv(env_variable_name: str):
+    assert get_dotenv(env_variable_name) is not None

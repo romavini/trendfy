@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -13,9 +13,9 @@ from trendfy.tools import exception_handler, get_dotenv, print_message
 class Colect:
     def __init__(
         self,
-        max_repertoire: int = 100,
-        styles: Union[List[str], None] = None,
-        years: Union[range, None] = None,
+        max_repertoire: Optional[int] = 100,
+        styles: Optional[List[str]] = None,
+        years: Optional[range] = None,
     ):
         if styles is not None:
             self.styles = styles
@@ -45,6 +45,9 @@ class Colect:
         year: int,
     ) -> pd.DataFrame:
         """Return list of albuns or playlist given a search"""
+        if self.max_repertoire is None:
+            self.max_repertoire = 10
+
         result = []
         offset = 0
         repertoire_limit = 20
@@ -212,7 +215,7 @@ class Colect:
 
                 print_message(
                     "Searching...",
-                    f"Getting the albums tracks: " f"{round(batch_repertoire * 100 / steps, 2)}%",
+                    f"Getting the album's tracks: " f"{round(batch_repertoire * 100 / steps, 2)}%",
                     "n",
                 )
 

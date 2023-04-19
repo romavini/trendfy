@@ -18,7 +18,7 @@ check:
 	venv/bin/python -m bandit -q -r trendfy/
 	venv/bin/python -m bandit -s=B101 -q -r tests/
 
-check2build:
+check2build: check
 	venv/bin/python -m isort --check-only trendfy/ tests/
 	venv/bin/python -m black --check trendfy/ tests/
 	venv/bin/python -m pylint --rcfile=pyproject.toml trendfy/ tests/

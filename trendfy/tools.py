@@ -105,6 +105,6 @@ def print_message(status: str, text: Any, message_type: str = "n"):
     logging.info(message)
 
 
-def get_dotenv(envname):
+def get_dotenv(envname: str) -> Any:
     load_dotenv()
     return os.getenv(f"{envname}")

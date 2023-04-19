@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from time import sleep
 from typing import Any, List, Union
 
 import numpy as np
@@ -11,9 +10,9 @@ from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, create
 from sqlalchemy.engine import Dialect  # type: ignore
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy.orm import sessionmaker  # type: ignore
-from sqlalchemy.sql.schema import ForeignKey
+from sqlalchemy.sql.schema import ForeignKey  # type: ignore
 
-from trendfy.errors import EmptyData  # type: ignore
+from trendfy.errors import EmptyData, FailToCommit  # type: ignore
 from trendfy.tools import get_dotenv, print_message
 
 
@@ -131,24 +130,24 @@ def structure_track(data):
     db_class = Tracks
     data_local = [
         db_class(
-            id=data.iloc[i]["id"],
-            name=data.iloc[i]["name"],
-            album_id=data.iloc[i]["album_id"],
+            id=str(data.iloc[i]["id"]),
+            name=str(data.iloc[i]["name"]),
+            album_id=str(data.iloc[i]["album_id"]),
             popularity=int(data.iloc[i]["popularity"]),
             duration_ms=int(data.iloc[i]["duration_ms"]),
-            explicit=data.iloc[i]["explicit"].astype("bool"),
-            danceability=data.iloc[i]["danceability"],
-            energy=data.iloc[i]["energy"],
-            key=data.iloc[i]["key"],
-            loudness=data.iloc[i]["loudness"],
-            mode=data.iloc[i]["mode"],
-            speechiness=data.iloc[i]["speechiness"],
-            acousticness=data.iloc[i]["acousticness"],
-            instrumentalness=data.iloc[i]["instrumentalness"],
-            liveness=data.iloc[i]["liveness"],
-            valence=data.iloc[i]["valence"],
-            tempo=data.iloc[i]["tempo"],
-            time_signature=data.iloc[i]["time_signature"],
+            explicit=bool(data.iloc[i]["explicit"].astype("bool")),
+            danceability=float(data.iloc[i]["danceability"]),
+            energy=float(data.iloc[i]["energy"]),
+            key=float(data.iloc[i]["key"]),
+            loudness=float(data.iloc[i]["loudness"]),
+            mode=float(data.iloc[i]["mode"]),
+            speechiness=float(data.iloc[i]["speechiness"]),
+            acousticness=float(data.iloc[i]["acousticness"]),
+            instrumentalness=float(data.iloc[i]["instrumentalness"]),
+            liveness=float(data.iloc[i]["liveness"]),
+            valence=float(data.iloc[i]["valence"]),
+            tempo=float(data.iloc[i]["tempo"]),
+            time_signature=float(data.iloc[i]["time_signature"]),
         )
         for i in range(len(data))
         if not data.iloc[i].isna()[0]
@@ -218,18 +217,16 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
 
 
 def try_commit_data(data, session, ids_to_add):
-    while True:
+    for attempt in range(1, 4):
         try:
             session.add_all([value for value in data if value.id in ids_to_add])
             session.commit()
             break
         except Exception as e:
-            print(e)
-            print_message("Rolling Back", "Trying to commit", "e")
-            try:
-                ids_to_add = rollback_exception(data, session, ids_to_add, e)
-            except AttributeError:
-                break
+            print_message(f"Rolling Back {attempt}", f"error: {e} | Trying to commit", "e")
+            ids_to_add = rollback_exception(data, session, ids_to_add, e)
+    else:
+        raise FailToCommit
 
 
 def check_data_add(ids_to_add):
@@ -251,9 +248,7 @@ def rollback_exception(data, session, ids_to_add, e):
             "Removing tracks of missing album...",
             f"Album Id: {album_id_err}",
         )
-    else:
-        session.rollback()
-        raise AttributeError(e.args[0])
+    session.rollback()
     return ids_to_add
 
 
@@ -276,8 +271,7 @@ def psql_connect(func: Any) -> Any:
             return res
 
         except Exception as e:
-            print_message("Database", "Error!", "e")
-            print(e)
+            print_message("Database", f"Error! {e}", "e")
 
         finally:
             conn.close()

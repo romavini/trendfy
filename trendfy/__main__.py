@@ -1,9 +1,9 @@
 import argparse
 
 from trendfy.analyse import analyse
-from trendfy.collect import collect
+from trendfy.collect import collect, repair
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="Spotify Data Process.",
     )
@@ -13,15 +13,23 @@ if __name__ == "__main__":
         metavar="collect",
         type=int,
         nargs=1,
-        help="an integer for maximus of the albuns by year",
+        help="An integer for maximus of the albuns by year",
     )
     parser.add_argument(
         "-a",
         "--analyse",
         action="store_true",
-        help="an integer for maximus of the albuns by year",
+        help="Return an analisys of the saved data in database",
     )
     parser.add_argument("-v", "--version", action="version", version="%(prog)s 1.0")
+
+    parser.add_argument(
+        "-r",
+        "--repair",
+        action="store_true",
+        help="Check if all tracks of albuns are saved and save those ones that are not",
+    )
+
     args = parser.parse_args()
 
     if args.collect:
@@ -29,3 +37,6 @@ if __name__ == "__main__":
 
     if args.analyse:
         analyse()
+
+    if args.repair:
+        repair()
