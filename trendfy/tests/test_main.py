@@ -1,6 +1,5 @@
 import pandas as pd
-
-from trendfy.psql.main import read_db
+from psql.main import read_db
 
 
 def test_read_db(generate_engine):

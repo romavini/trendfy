@@ -14,12 +14,11 @@ class ModelSklearnTrendfy:
         df_features = df.loc[
             :,
             [
-                "id_fromtrack",
+                "id",
                 "album_id",
                 "release_date",
-                "name_fromtrack",
-                "artist",
-                "popularity_fromtrack",
+                "name",
+                "popularity",
                 "duration_ms",
                 "explicit",
                 "danceability",
@@ -37,12 +36,9 @@ class ModelSklearnTrendfy:
             ],
         ]
         df_features = df_features.sort_values(by="release_date").set_index("release_date")
-        df_100top_table = df_features.sort_values(by="popularity_fromtrack", ascending=False).iloc[:1000].copy()
+        df_100top_table = df_features.sort_values(by="popularity", ascending=False).iloc[:1000].copy()
         df_100lower_table = (
-            df_features.query("popularity_fromtrack == 0")
-            .sort_values(by="release_date", ascending=False)
-            .iloc[:1000]
-            .copy()
+            df_features.query("popularity == 0").sort_values(by="release_date", ascending=False).iloc[:1000].copy()
         )
 
         self.df_dict["original_df"] = pd.concat(
@@ -50,7 +46,7 @@ class ModelSklearnTrendfy:
                 df_100top_table.loc[
                     :,
                     [
-                        "id_fromtrack",
+                        "id",
                         "album_id",
                         "duration_ms",
                         "explicit",
@@ -71,7 +67,7 @@ class ModelSklearnTrendfy:
                 df_100lower_table.loc[
                     :,
                     [
-                        "id_fromtrack",
+                        "id",
                         "album_id",
                         "duration_ms",
                         "explicit",
@@ -99,4 +95,4 @@ class ModelSklearnTrendfy:
         self.df_dict["shuffle_df"] = self.df_dict["original_df"].sample(frac=1, random_state=42)
 
         self.df_dict["y_train"] = self.df_dict["shuffle_df"]["class"]
-        self.df_dict["X_train"] = self.df_dict["shuffle_df"].drop(columns=["id_fromtrack", "album_id", "class"]).values
+        self.df_dict["X_train"] = self.df_dict["shuffle_df"].drop(columns=["id", "album_id", "class"]).values

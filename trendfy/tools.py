@@ -1,7 +1,9 @@
+import inspect
 import logging
 import os
 import traceback
-from typing import Any, Tuple
+from pathlib import Path
+from typing import Any, List, Tuple
 
 from dotenv import load_dotenv  # type: ignore
 from requests.exceptions import ConnectionError as RequestConnectionError  # type: ignore
@@ -9,13 +11,13 @@ from requests.exceptions import HTTPError, ReadTimeout  # type: ignore
 from spotipy.exceptions import SpotifyException  # type: ignore
 
 
-def exception_handler(func: Any) -> Any:
+def exception_handler(function: Any) -> Any:
     def wrapper(*args, **kwargs) -> Tuple[Any, int]:
-        res = None
+        response = None
         exception_raised = 1
 
         try:
-            res = func(*args, **kwargs)
+            response = function(*args, **kwargs)
         except AttributeError:
             print_message(
                 "AttributeError",
@@ -75,12 +77,12 @@ def exception_handler(func: Any) -> Any:
         else:
             exception_raised = 0
 
-        return res, exception_raised
+        return response, exception_raised
 
     return wrapper
 
 
-def print_message(status: str, text: Any, message_type: str = "n"):
+def print_colored_message(status: str, text: Any, message_type: str = "n"):  # pragma: no cover
     """Print error given Exception
 
     Keyword argument:
@@ -88,9 +90,15 @@ def print_message(status: str, text: Any, message_type: str = "n"):
     message_type -- type of message print. can be 'e' for error, 's' for
     success, and 'n' for notification.
     """
+    log_folder = get_log_folder()
     logging_format = f"%(asctime)s - {__name__} - %(levelname)s:\n%(message)s"
-    logging.basicConfig(format=logging_format, level=logging.INFO, datefmt="%d-%m-%Y %H:%M:%S")
-
+    logging.basicConfig(
+        filename=log_folder / "logs.log",
+        encoding="utf-8",
+        format=logging_format,
+        level=logging.INFO,
+        datefmt="%d-%m-%Y %H:%M:%S",
+    )
     if message_type == "e":
         message_color = "\033[91m"
         eom = ""
@@ -100,11 +108,50 @@ def print_message(status: str, text: Any, message_type: str = "n"):
     elif message_type == "n":
         message_color = "\033[33m"
         eom = ""
-    message = "[" + message_color + f"{status}" + "\033[0m" + "]" + message_color + " -> " + "\033[0m" + f"{text}{eom}"
 
+    message = "[" + message_color + f"{status}" + "\033[0m" + "]" + message_color + " -> " + "\033[0m" + f"{text}{eom}"
     logging.info(message)
+
+
+def print_message(status: str, text: Any, message_type: str = "n"):  # pragma: no cover
+    """Print error given Exception
+
+    Keyword argument:
+    status -- message type
+    message_type -- type of message print. can be 'e' for error, 's' for
+    success, and 'n' for notification.
+    """
+
+    caller_filename = inspect.stack()[1].filename
+
+    log_folder = get_log_folder()
+    logging_format = f"%(asctime)s - {caller_filename} - %(levelname)s:\n%(message)s"
+    logging.basicConfig(
+        filename=log_folder / "logs.log",
+        format=logging_format,
+        level=logging.INFO,
+        datefmt="%d-%m-%Y %H:%M:%S",
+    )
+    message = f"[{status}] -> {text}"
+    logging.info(message)
+
+
+def get_log_folder():
+    root = Path(__file__).parent.parent.resolve()
+    os.makedirs(root / "logs", exist_ok=True)
+    return root / "logs"
 
 
 def get_dotenv(envname: str) -> Any:
     load_dotenv()
     return os.getenv(f"{envname}")
+
+
+def get_log_text() -> List[str]:
+    root = Path(__file__).parent.parent.resolve()
+    with open(root / "logs/logs.log", "r") as f:
+        txt = f.read()
+
+    logs = txt.split("\n\n") if "\n\n" in txt else [txt]
+    logs = [log.strip() for log in logs if log]
+    return logs

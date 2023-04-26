@@ -2,8 +2,11 @@ import argparse
 
 from trendfy.analyse import analyse
 from trendfy.collect import collect, repair
+from trendfy.params import MAX_REQ_ALBUMS, STYLES, YEARS
+from trendfy.tools import print_message
 
 if __name__ == "__main__":  # pragma: no cover
+    print_message("Starting", "Starting module")
     parser = argparse.ArgumentParser(
         description="Spotify Data Process.",
     )
@@ -32,11 +35,14 @@ if __name__ == "__main__":  # pragma: no cover
 
     args = parser.parse_args()
 
-    if args.collect:
-        collect(args)
+    if args.collect:  # pragma: no cover
+        max_repertoire = int(args.collect[0]) if args.collect else MAX_REQ_ALBUMS
+        collect(max_repertoire, STYLES, YEARS)
 
     if args.analyse:
         analyse()
 
     if args.repair:
         repair()
+
+    print_message("Finished", "Module fineshed\n\n")

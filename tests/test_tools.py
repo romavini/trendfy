@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Tuple
 
 import pytest  # type: ignore
@@ -7,7 +6,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError  # ty
 from requests.exceptions import HTTPError, ReadTimeout  # type: ignore
 from spotipy.exceptions import SpotifyException  # type: ignore
 
-from trendfy.tools import exception_handler, get_dotenv, print_message
+from trendfy.tools import exception_handler, get_dotenv, get_log_text
 
 
 @exception_handler
@@ -37,7 +36,7 @@ def test_exception_handler(error: Exception, expect_tuple: Tuple[int, Any]):
     assert xfail(error) == expect_tuple
 
 
-def test_exception_handler_KeyboardInterrupt():
+def test_exception_handler_keyboard_interrupt():
     with pytest.raises(KeyboardInterrupt):
         xfail(KeyboardInterrupt)
 
@@ -60,3 +59,8 @@ def test_env_file_exist():
 )
 def test_get_dotenv(env_variable_name: str):
     assert get_dotenv(env_variable_name) is not None
+
+
+def test_get_log_text():
+    txt = get_log_text()
+    assert isinstance(txt, list)

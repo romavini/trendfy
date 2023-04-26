@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 import numpy as np
@@ -91,16 +92,18 @@ class Colect:
         """Append the infos of albums in a list of dictionaries."""
 
         albums_list = []
+        if not albums_response:
+            raise EmptyData
 
         for item in albums_response:
             dict_styles = {}
-
             dict_styles["id"] = item["id"]
             dict_styles["name"] = item["name"].lower()
             dict_styles["artist"] = item["artists"][0]["name"].lower()
             dict_styles["style"] = style
             dict_styles["year"] = year
             dict_styles["release_date"] = item["release_date"]
+            print(dict_styles["release_date"])
             dict_styles["n_of_tracks"] = item["total_tracks"]
             dict_styles["artist_id"] = item["artists"][0]["id"]
 
@@ -158,6 +161,7 @@ class Colect:
         tracks: List[Any],
         tracks_response: Iterable[Dict[str, Any]],
         features_response: Iterable[Dict[str, Any]],
+        release_dates: Dict[str, str],
     ) -> List[Dict[str, Any]]:
         """Append the features of tracks in a list of dictionaries."""
 
@@ -175,6 +179,7 @@ class Colect:
                 tracks_dict["name"] = track["track_name"]
                 tracks_dict["album_id"] = track["album_id"]
                 tracks_dict["album_popularity"] = track["album_popularity"]
+                tracks_dict["release_date"] = datetime.strptime(release_dates[track["album_id"]], "%Y-%m-%d")
                 tracks_dict["popularity"] = track["popularity"]
                 tracks_dict["duration_ms"] = track["duration_ms"]
                 tracks_dict["explicit"] = track["explicit"]
@@ -231,9 +236,16 @@ class Colect:
 
                 # Get details of the tracks
                 search_ids = [track["track_id"] for track in tracks_response]
+                release_dates = (
+                    pd.DataFrame(album_response["albums"])
+                    .loc[:, ["id", "release_date"]]
+                    .set_index("id", drop=True)
+                    .to_dict()["release_date"]
+                )
+                print(release_dates)
                 features_responde, _ = self.get_spot_details(search_ids)
 
-                tracks = self.append_track_to_list(tracks, tracks_response, features_responde)
+                tracks = self.append_track_to_list(tracks, tracks_response, features_responde, release_dates)
 
             except KeyboardInterrupt:
                 break

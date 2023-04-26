@@ -54,6 +54,7 @@ class Tracks(Base):  # type: ignore
     id = Column(String, primary_key=True)
     name = Column(String)
     album_id = Column(String, ForeignKey("albums.id"))
+    release_date = Column(DateTime, ForeignKey("albums.release_date"))
     popularity = Column(Integer)
     duration_ms = Column(Integer)
     explicit = Column(Boolean)
@@ -75,6 +76,7 @@ class Tracks(Base):  # type: ignore
             f"<Tracks(id='{self.id}', "
             f"name='{self.name}', "
             f"album_id='{self.album_id}', "
+            f"release_date='{self.release_date}', "
             f"popularity='{self.popularity}', "
             f"duration_ms='{self.duration_ms}', "
             f"explicit='{self.explicit}', "
@@ -133,6 +135,7 @@ def structure_track(data):
             id=str(data.iloc[i]["id"]),
             name=str(data.iloc[i]["name"]),
             album_id=str(data.iloc[i]["album_id"]),
+            release_date=datetime.strptime(data.iloc[i]["release_date"], "%Y-%m-%d"),
             popularity=int(data.iloc[i]["popularity"]),
             duration_ms=int(data.iloc[i]["duration_ms"]),
             explicit=bool(data.iloc[i]["explicit"].astype("bool")),
@@ -218,15 +221,22 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
 
 def try_commit_data(data, session, ids_to_add):
     for attempt in range(1, 4):
-        try:
-            session.add_all([value for value in data if value.id in ids_to_add])
-            session.commit()
+        success, ids_to_add = attempt_commit(data, session, ids_to_add, attempt)
+        if success:
             break
-        except Exception as e:
-            print_message(f"Rolling Back {attempt}", f"error: {e} | Trying to commit", "e")
-            ids_to_add = rollback_exception(data, session, ids_to_add, e)
     else:
         raise FailToCommit
+
+
+def attempt_commit(data, session, ids_to_add, attempt):
+    try:
+        session.add_all([value for value in data if value.id in ids_to_add])
+        session.commit()
+        return True, ids_to_add
+    except Exception as e:
+        print_message(f"Rolling Back {attempt}", f"error: {e} | Trying to commit", "e")
+        ids_to_add = rollback_exception(data, session, ids_to_add, e)
+        return False, ids_to_add
 
 
 def check_data_add(ids_to_add):

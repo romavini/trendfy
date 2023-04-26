@@ -27,6 +27,6 @@ jobs:
       - name: Install projects
         run: make setup
       - name: Check Projects
-        run: make check2build
+        run: make check
       - name: Test Projects
         run: make test

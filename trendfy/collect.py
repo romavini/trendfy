@@ -1,12 +1,10 @@
-from argparse import Namespace
+from typing import List
 
-from trendfy.params import MAX_REQ_ALBUMS, STYLES, YEARS
 from trendfy.trend import Trendfy
 
 
-def collect(args: Namespace):
-    max_repertoire = int(args.collect[0]) if args.collect else MAX_REQ_ALBUMS
-    trendfy = Trendfy(max_repertoire, STYLES, YEARS)
+def collect(max_repertoire: int, styles: List[str], years: range):
+    trendfy = Trendfy(max_repertoire, styles, years)
     trendfy.colector_runner()
 
 

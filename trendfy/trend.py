@@ -5,7 +5,7 @@ import pandas as pd
 
 from trendfy.errors import EmptyData
 from trendfy.psql.main import read_db, write_into_db
-from trendfy.spotify_colect import Colect
+from trendfy.spotify_collect import Colect
 from trendfy.tools import print_message
 
 
@@ -15,9 +15,11 @@ class Trendfy(Colect):
         max_repertoire: Optional[int] = None,
         styles: Optional[List[str]] = None,
         years: Optional[range] = None,
+        return_only: bool = False,
     ):
         self.styles = styles  # type: ignore
         self.years = years  # type: ignore
+        self.return_only = return_only
 
         super().__init__(
             max_repertoire,
@@ -82,18 +84,22 @@ class Trendfy(Colect):
         write_into_db(df_track, "tracks")
 
     def repair(self):
-        albums_db = read_db("albums")
-        print_message("Success", f"{albums_db.shape[0]} albums in DB", "s")
-        tracks_db = read_db("tracks")
-        print_message("Success", f"{tracks_db.shape[0]} tracks in DB", "s")
-        seek_tracks = self.search_tracks_from_repertoire(albums_db)
-        tracks_to_add = self.get_tracks_to_add(tracks_db, seek_tracks)
-        tracks_to_add = tracks_to_add.drop(columns=["album_popularity"])
-        if tracks_to_add.shape[0]:
+        is_need, tracks_to_add = self.need_repair()
+
+        if is_need:
             print_message("Success", f"{tracks_to_add.shape[0]} tracks to be added in DB", "s")
             write_into_db(tracks_to_add, "tracks")
         else:
             print_message("Success", "No tracks to be added in DB", "s")
+
+    def need_repair(self):
+        albums_db = read_db("albums")
+        tracks_db = read_db("tracks")
+        seek_tracks = self.search_tracks_from_repertoire(albums_db)
+        tracks_to_add = self.get_tracks_to_add(tracks_db, seek_tracks)
+        tracks_to_add = tracks_to_add.drop(columns=["album_popularity"])
+
+        return tracks_to_add.shape[0], tracks_to_add
 
     @staticmethod
     def get_tracks_to_add(tracks_db: pd.DataFrame, tracks_to_add: pd.DataFrame) -> pd.DataFrame:
