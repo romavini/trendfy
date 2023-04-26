@@ -1,0 +1,3 @@
+YEARS = range(2000, 2001)
+STYLES = ["pop"]
+MAX_REQ_ALBUMS = 50

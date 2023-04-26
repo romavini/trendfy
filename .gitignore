@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Data
+data/
+
 # JSON
 *.json
 
@@ -46,6 +49,7 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
+junittest.xml
 .cache
 nosetests.xml
 coverage.xml

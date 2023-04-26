@@ -1,23 +1,18 @@
-[build-system]
-requires = ["setuptools>=42.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [tool.pytest.ini_options]
-addopts = "--cov=trendfy"
-testpaths = [
-    "tests",
-]
+pythonpath = ["trendify"]
+addopts = "--junitxml=junittest.xml --cov-report xml --cov-report term:skip-covered --cov-branch"
+testpaths = ["tests"]
 
 [tool.mypy]
-mypy_path = "src"
-check_untyped_defs = true
-disallow_any_generics = true
-ignore_missing_imports = true
-no_implicit_optional = true
-show_error_codes = true
-strict_equality = true
-warn_redundant_casts = true
-warn_return_any = true
-warn_unreachable = true
-warn_unused_configs = true
-no_implicit_reexport = true
+ignore_missing_imports = "True"
+
+[tool.pylint.messages_control]
+disable = ["C0114", "C0115", "C0116", "C0301", "R0903", "W0511", "W0621", "W0632", "W1203"]
+good-names = ["df"]
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
