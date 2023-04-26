@@ -94,7 +94,6 @@ def print_colored_message(status: str, text: Any, message_type: str = "n"):  # p
     logging_format = f"%(asctime)s - {__name__} - %(levelname)s:\n%(message)s"
     logging.basicConfig(
         filename=log_folder / "logs.log",
-        encoding="utf-8",
         format=logging_format,
         level=logging.INFO,
         datefmt="%d-%m-%Y %H:%M:%S",
@@ -121,13 +120,14 @@ def print_message(status: str, text: Any, message_type: str = "n"):  # pragma: n
     message_type -- type of message print. can be 'e' for error, 's' for
     success, and 'n' for notification.
     """
-
+    message_type = "Info" if message_type == "n" else "Success" if message_type == "s" else "Error"
     caller_filename = inspect.stack()[1].filename
 
     log_folder = get_log_folder()
     logging_format = f"%(asctime)s - {caller_filename} - %(levelname)s:\n%(message)s"
+    log_filepath = log_folder / "logs.log"
     logging.basicConfig(
-        filename=log_folder / "logs.log",
+        filename=log_filepath,
         format=logging_format,
         level=logging.INFO,
         datefmt="%d-%m-%Y %H:%M:%S",
@@ -149,9 +149,9 @@ def get_dotenv(envname: str) -> Any:
 
 def get_log_text() -> List[str]:
     root = Path(__file__).parent.parent.resolve()
-    with open(root / "logs/logs.log", "r") as f:
-        txt = f.read()
+    with open(root / "logs/logs.log", "r", encoding="UTF-8") as file:
+        file_text = file.read()
 
-    logs = txt.split("\n\n") if "\n\n" in txt else [txt]
+    logs = file_text.split("\n\n") if "\n\n" in file_text else [file_text]
     logs = [log.strip() for log in logs if log]
     return logs

@@ -103,7 +103,6 @@ class Colect:
             dict_styles["style"] = style
             dict_styles["year"] = year
             dict_styles["release_date"] = item["release_date"]
-            print(dict_styles["release_date"])
             dict_styles["n_of_tracks"] = item["total_tracks"]
             dict_styles["artist_id"] = item["artists"][0]["id"]
 
@@ -242,7 +241,6 @@ class Colect:
                     .set_index("id", drop=True)
                     .to_dict()["release_date"]
                 )
-                print(release_dates)
                 features_responde, _ = self.get_spot_details(search_ids)
 
                 tracks = self.append_track_to_list(tracks, tracks_response, features_responde, release_dates)

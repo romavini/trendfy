@@ -44,6 +44,7 @@ class Trendfy(Colect):
 
     def collect_n_save_repertoire(self):
         df_repertoire = self.iter_search_repertoires()
+        df_repertoire["release_date"] = pd.to_datetime(df_repertoire["release_date"], format="%Y-%m-%d")
 
         if len(df_repertoire) == 0:
             print_message(

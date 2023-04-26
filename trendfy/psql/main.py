@@ -1,5 +1,5 @@
+import sys
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, List, Union
 
 import numpy as np
@@ -54,7 +54,7 @@ class Tracks(Base):  # type: ignore
     id = Column(String, primary_key=True)
     name = Column(String)
     album_id = Column(String, ForeignKey("albums.id"))
-    release_date = Column(DateTime, ForeignKey("albums.release_date"))
+    release_date = Column(DateTime)
     popularity = Column(Integer)
     duration_ms = Column(Integer)
     explicit = Column(Boolean)
@@ -135,7 +135,7 @@ def structure_track(data):
             id=str(data.iloc[i]["id"]),
             name=str(data.iloc[i]["name"]),
             album_id=str(data.iloc[i]["album_id"]),
-            release_date=datetime.strptime(data.iloc[i]["release_date"], "%Y-%m-%d"),
+            release_date=data.iloc[i]["release_date"],
             popularity=int(data.iloc[i]["popularity"]),
             duration_ms=int(data.iloc[i]["duration_ms"]),
             explicit=bool(data.iloc[i]["explicit"].astype("bool")),
@@ -167,17 +167,7 @@ def structure_album(data):
             name=data.iloc[i]["name"],
             artist=data.iloc[i]["artist"],
             style=data.iloc[i]["style"],
-            release_date=datetime.strptime(data.iloc[i]["release_date"], "%Y-%m-%d")
-            if data.iloc[i]["release_date"].count("-") == 2
-            else datetime.strftime(
-                datetime.strptime(data.iloc[i]["release_date"], "%Y-%m"),
-                "%Y-%m-%d",
-            )
-            if "-" in data.iloc[i]["release_date"]
-            else datetime.strftime(
-                datetime.strptime(data.iloc[i]["release_date"], "%Y"),
-                "%Y-%m-%d",
-            ),
+            release_date=data.iloc[i]["release_date"],
             popularity=0,
             n_of_tracks=int(data.iloc[i]["n_of_tracks"]),
         )
@@ -193,13 +183,7 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
     table -- to add into.
     data -- DataFrame to insert into.
     """
-    path_db = (
-        f"postgresql://{get_dotenv('user_db')}:"
-        f"{get_dotenv('password_db')}@{get_dotenv('host_db')}"
-        f":{get_dotenv('port_db')}/{get_dotenv('database_db')}"
-    )
-    engine = create_engine(path_db)
-
+    engine = get_engine()
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
 
@@ -217,6 +201,17 @@ def commit_db(table: Any, data: List[Union[Tracks, Albums]]):
         check_data_add(ids_to_add)
 
         try_commit_data(data, session, ids_to_add)
+
+
+def get_engine():
+    path_db = (
+        f"postgresql://{get_dotenv('user_db')}:"
+        f"{get_dotenv('password_db')}@{get_dotenv('host_db')}"
+        f":{get_dotenv('port_db')}/{get_dotenv('database_db')}"
+    )
+    engine = create_engine(path_db)
+    print(type(engine))
+    return engine
 
 
 def try_commit_data(data, session, ids_to_add):
@@ -311,9 +306,8 @@ def show_rows(cursor):
 
 
 def parse_query(query):
-    if query == "":
-        query = "select * from person"
-        type_query = "select"
+    if query.lower() in ["", "q", "quit", "exit"]:
+        sys.exit()
     else:
         query_command = query.split()[0]
         if "select" in query_command:
@@ -325,5 +319,17 @@ def parse_query(query):
     return query, type_query
 
 
+def drop(table: str):
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    if table == "albums":
+        Albums.__table__.drop()
+    elif table == "tracks":
+        Tracks.__table__.drop()
+    else:
+        raise ValueError(f"{table} not found")
+
+
 if __name__ == "__main__":
+    psql_query()
     psql_query()
