@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 setup:
 	python -m venv venv
 	venv/bin/pip install -e .
@@ -28,3 +29,21 @@ test:
 all: check test
 
 all-build: lint check test
+
+req:
+	@echo "Verifying requirements..."
+	@while read line; do \
+		if [[ "$$line" =~ ^[a-zA-Z0-9] ]]; then \
+			echo "Checking package: $$line"; \
+			pkg=$$line; \
+			version=$$(grep "$$line" $(file) | sed 's/[^0-9.]/ /g' | cut -d " " -f 2); \
+			echo $$pkg; \
+			echo $$version; \
+			# if [[ -z "$$version" ]]; then \
+			# 	version=$$(pip show $$pkg | grep "^Version: " | cut -d " " -f 2); \
+			# fi; \
+			# echo "$$pkg==$$version" >> requirements.tmp; \
+			# pip show $$pkg | grep "Requires: " | cut -d " " -f2- | tr ", " "\n" >> requirements.tmp; \
+		fi; \
+	done < $(file)
+	# @mv requirements.tmp $(file)
